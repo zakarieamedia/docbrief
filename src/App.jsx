@@ -10,6 +10,20 @@ import ResultView from './components/ResultView'
 import History from './components/History'
 import Admin from './pages/Admin'
 
+// The last summary result — including file name and analysis metadata —
+// survives refreshes and tab navigation. Cleared on logout.
+const STORAGE_KEY = 'docbrief:lastResult'
+
+function loadStoredResult() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [authReady, setAuthReady] = useState(false)
@@ -18,7 +32,7 @@ export default function App() {
   const [progress, setProgress] = useState(null) // { current, total, percent, stage }
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
-  const [result, setResult] = useState(null) // { summary, wordCount, chunksProcessed, depth, format, focus, fileName, fileType }
+  const [result, setResult] = useState(loadStoredResult) // { summary, wordCount, chunksProcessed, depth, format, focus, fileName, fileType }
   const [historyVersion, setHistoryVersion] = useState(0)
   // Analyze settings awaiting user confirmation in the modal; null = no modal.
   const [pendingAnalysis, setPendingAnalysis] = useState(null) // { depth, format, focus }
@@ -30,9 +44,24 @@ export default function App() {
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession)
+      // Covers every sign-out path (button, expiry, another tab) so the
+      // next user on this browser doesn't see the previous user's summary.
+      if (!newSession) {
+        localStorage.removeItem(STORAGE_KEY)
+        setResult(null)
+      }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    try {
+      if (result) localStorage.setItem(STORAGE_KEY, JSON.stringify(result))
+      else localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // storage full or unavailable — persistence is best-effort
+    }
+  }, [result])
 
   const isAdmin =
     Boolean(session) && session.user.email === import.meta.env.VITE_ADMIN_EMAIL
@@ -177,7 +206,11 @@ export default function App() {
               )}
               <span className="hidden sm:block text-sm text-white/80">{session.user.email}</span>
               <button
-                onClick={() => supabase.auth.signOut()}
+                onClick={() => {
+                  localStorage.removeItem(STORAGE_KEY)
+                  setResult(null)
+                  supabase.auth.signOut()
+                }}
                 className="text-sm font-medium bg-white/10 hover:bg-white/20 rounded-lg px-3 py-1.5 transition-colors"
               >
                 Log out
