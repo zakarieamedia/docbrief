@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { jsPDF } from 'jspdf'
+import { marked } from 'marked'
 import { supabase } from '../lib/supabase'
 
 function MetricCard({ label, value }) {
@@ -147,9 +148,18 @@ export default function ResultView({ result, session, onSaved }) {
           </div>
         </div>
         <div className="px-5 py-4 max-h-[28rem] overflow-y-auto">
-          <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
-            {result.summary}
-          </p>
+          <div
+            className="text-sm text-gray-800 leading-relaxed
+              [&_h1]:text-lg [&_h1]:font-bold [&_h1]:text-navy [&_h1]:mt-4 [&_h1]:mb-2
+              [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-navy [&_h2]:mt-4 [&_h2]:mb-2
+              [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-navy [&_h3]:mt-3 [&_h3]:mb-1
+              [&_:first-child]:mt-0
+              [&_p]:mb-2 [&_strong]:font-semibold
+              [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:space-y-1
+              [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_ol]:space-y-1
+              [&_hr]:my-4 [&_hr]:border-gray-200"
+            dangerouslySetInnerHTML={{ __html: marked.parse(result.summary) }}
+          />
         </div>
       </div>
 

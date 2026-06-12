@@ -1,27 +1,22 @@
 const API_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-sonnet-4-6'
-const MAX_TOKENS = 1000
-const CHUNK_SIZE = 60000
+const MAX_TOKENS = 2000
+const CHUNK_SIZE = 150000
+const MAX_INPUT_CHARS = 450000
+const MAX_CHUNKS = 8
 
-const SYSTEM_PROMPT =
-  'You are an expert document analyst specializing in legal, financial, real estate, ' +
-  'and business documents. You produce precise, professional summaries that preserve ' +
-  'key terms, parties, dates, figures, obligations, and risks. You never invent facts ' +
-  'that are not present in the source document.'
+const CHUNK_SYSTEM_PROMPT =
+  'You are an expert document analyst. Extract ONLY the most critical information ' +
+  'from this chunk in 3-4 bullet points maximum. Focus exclusively on: parties and ' +
+  'their roles, key obligations, dollar amounts, dates, deadlines, and risks. Be ' +
+  'extremely concise. No boilerplate, no obvious statements, no lengthy explanations.'
 
-const DEPTH_INSTRUCTIONS = {
-  Brief: 'Produce a brief summary of 2-4 short paragraphs covering only the most essential points.',
-  Standard: 'Produce a standard summary covering all major points, key terms, and notable details.',
-  Deep: 'Produce a deep, thorough summary covering every significant clause, figure, obligation, and nuance in the document.',
-  Executive: 'Produce an executive summary aimed at senior decision-makers: lead with the bottom line, key risks, financial impact, and recommended attention points.',
-}
-
-const FORMAT_INSTRUCTIONS = {
-  'Structured Sections': 'Organize the output into clearly titled sections with headings.',
-  'Bullet Points': 'Format the output as concise bullet points grouped under short headings.',
-  'Narrative Prose': 'Write the output as flowing narrative prose in well-formed paragraphs.',
-  'Q&A': 'Format the output as a series of questions a reader would ask about this document, each followed by a direct answer.',
-}
+const FINAL_SYSTEM_PROMPT =
+  'You are an expert document analyst. Produce a final summary under 600 words ' +
+  'total, in markdown, using exactly these section headings: "## Document Overview", ' +
+  '"## Key Parties", "## Financial Terms", "## Key Obligations", "## Important Dates", ' +
+  '"## Risks & Flags". Each section: maximum 4 bullet points. Ruthlessly cut anything ' +
+  'that is not decision-critical. Never invent facts that are not present in the source.'
 
 export function splitIntoChunks(text, size = CHUNK_SIZE) {
   const chunks = []
@@ -31,7 +26,7 @@ export function splitIntoChunks(text, size = CHUNK_SIZE) {
   return chunks
 }
 
-async function callClaude(userContent) {
+async function callClaude(system, userContent) {
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: {
@@ -46,7 +41,7 @@ async function callClaude(userContent) {
     body: JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      system: SYSTEM_PROMPT,
+      system,
       messages: [{ role: 'user', content: userContent }],
     }),
   })
@@ -73,18 +68,31 @@ async function callClaude(userContent) {
 }
 
 /**
- * Summarize a full document. Splits into 60k-char chunks, summarizes each,
- * then consolidates into one final summary.
+ * Summarize a full document. Input is truncated to 450k chars, split into
+ * 150k-char chunks (8 max), each chunk reduced to a few key bullets, then
+ * consolidated into one structured final summary under 600 words.
  *
  * onProgress({ current, total, percent, stage }) fires before each API call.
  * Returns { summary, chunksProcessed }.
  */
-export async function summarizeDocument(text, { depth, format, focus }, onProgress) {
-  const chunks = splitIntoChunks(text)
+export async function summarizeDocument(text, { focus }, onProgress) {
+  const chunks = splitIntoChunks(text.slice(0, MAX_INPUT_CHARS)).slice(0, MAX_CHUNKS)
   const total = chunks.length
   const focusLine = focus?.trim()
-    ? `Pay particular attention to the following focus areas: ${focus.trim()}.`
+    ? `Pay particular attention to the following focus areas: ${focus.trim()}.\n`
     : ''
+
+  // Single-chunk documents skip the map-reduce pass — summarize the full text
+  // directly into the final structured format.
+  if (total === 1) {
+    onProgress?.({ current: 1, total: 1, percent: 0, stage: 'Summarizing document' })
+    const summary = await callClaude(
+      FINAL_SYSTEM_PROMPT,
+      `${focusLine}Summarize this document:\n\n${chunks[0]}`,
+    )
+    onProgress?.({ current: 1, total: 1, percent: 100, stage: 'Done' })
+    return { summary, chunksProcessed: 1 }
+  }
 
   const chunkSummaries = []
   for (let i = 0; i < total; i++) {
@@ -95,16 +103,10 @@ export async function summarizeDocument(text, { depth, format, focus }, onProgre
       stage: `Analyzing chunk ${i + 1} of ${total}`,
     })
     const summary = await callClaude(
-      `${DEPTH_INSTRUCTIONS[depth]}\n${FORMAT_INSTRUCTIONS[format]}\n${focusLine}\n\n` +
-        `This is part ${i + 1} of ${total} of a larger document. Summarize this part:\n\n${chunks[i]}`,
+      CHUNK_SYSTEM_PROMPT,
+      `${focusLine}This is part ${i + 1} of ${total} of a larger document:\n\n${chunks[i]}`,
     )
     chunkSummaries.push(summary)
-  }
-
-  // Single-chunk documents need no consolidation pass — the chunk summary is final.
-  if (total === 1) {
-    onProgress?.({ current: 1, total: 1, percent: 100, stage: 'Done' })
-    return { summary: chunkSummaries[0], chunksProcessed: 1 }
   }
 
   onProgress?.({
@@ -114,9 +116,9 @@ export async function summarizeDocument(text, { depth, format, focus }, onProgre
     stage: 'Consolidating final summary',
   })
   const finalSummary = await callClaude(
+    FINAL_SYSTEM_PROMPT,
     `Below are ${total} partial summaries of consecutive sections of one document. ` +
-      `Merge them into a single coherent final summary.\n` +
-      `${DEPTH_INSTRUCTIONS[depth]}\n${FORMAT_INSTRUCTIONS[format]}\n${focusLine}\n\n` +
+      `Merge them into a single final summary.\n${focusLine}\n` +
       chunkSummaries.map((s, i) => `--- Part ${i + 1} ---\n${s}`).join('\n\n'),
   )
 
