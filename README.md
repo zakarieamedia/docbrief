@@ -6,7 +6,9 @@ Professional document summarizer for legal, financial, real estate, and business
 
 - **Vite + React + Tailwind CSS** — frontend
 - **Supabase** — auth, database (summary history), row-level security
-- **Anthropic Claude API** (`claude-sonnet-4-6`) — chunked summarization
+- **Anthropic Claude API** (`claude-sonnet-4-6`) — chunked summarization, proxied
+  through a Vercel serverless function (`api/summarize.js`) so the API key stays
+  server-side
 - **pdfjs-dist** — browser-side PDF text extraction
 - **mammoth** — DOCX text extraction
 - **jsPDF** — PDF export
@@ -28,21 +30,38 @@ Professional document summarizer for legal, financial, real estate, and business
    Fill in `.env.local`:
 
    ```
-   VITE_ANTHROPIC_API_KEY=your_key_here
+   # Server-side only (read by api/summarize.js via process.env — no VITE_ prefix,
+   # so it is never bundled into the browser build)
+   ANTHROPIC_API_KEY=your_key_here
+
+   # Client-side (safe to expose: the anon key is protected by RLS)
    VITE_SUPABASE_URL=your_url_here
    VITE_SUPABASE_ANON_KEY=your_anon_key_here
+   VITE_ADMIN_EMAIL=admin@example.com
    ```
 
 4. **Run**
 
    ```sh
-   npm run dev
+   vercel dev
    ```
+
+   `vercel dev` runs the Vite frontend *and* the serverless function together.
+   Plain `npm run dev` still works for UI-only changes, but `/api/summarize`
+   will 404 there, so summarization requires `vercel dev`.
 
 ## Security note
 
-This app calls the Anthropic API directly from the browser (`anthropic-dangerous-direct-browser-access`), which exposes the API key to anyone using the deployed site. That is acceptable for local/personal use; before a public deployment, move the Claude call behind a server route (e.g. a Vercel serverless function) and keep the key server-side.
+Claude calls are proxied through `api/summarize.js`, which reads
+`ANTHROPIC_API_KEY` from server-side environment variables — the key never
+ships in the browser bundle. The endpoint pins the model and caps
+`max_tokens` server-side. It is not authenticated, however: anyone who can
+reach the deployed site can call it, so consider verifying the Supabase JWT
+in the function before opening the app to untrusted users.
 
 ## Deployment
 
-`vercel.json` includes an SPA rewrite so client-side routing works on Vercel. Set the three environment variables in your Vercel project settings.
+`vercel.json` rewrites `/api/*` to the serverless functions and everything
+else to `index.html` so client-side routing works on Vercel. Set
+`ANTHROPIC_API_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and
+`VITE_ADMIN_EMAIL` in your Vercel project settings.

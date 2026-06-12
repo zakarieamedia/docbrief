@@ -1,5 +1,6 @@
-const API_URL = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-sonnet-4-6'
+// Claude calls go through the serverless proxy (api/summarize.js) so the
+// Anthropic API key never reaches the browser. The model is set server-side.
+const API_URL = '/api/summarize'
 const MAX_TOKENS = 2000
 // The structured JSON summary needs headroom beyond the per-chunk limit —
 // a response cut off at max_tokens is unparseable JSON.
@@ -96,20 +97,11 @@ export function splitIntoChunks(text, size = CHUNK_SIZE) {
 async function callClaude(system, userContent, maxTokens = MAX_TOKENS) {
   const response = await fetch(API_URL, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      // Required for direct browser-side calls to the Anthropic API.
-      // Exposes the API key to the client — use a restricted key, or move
-      // this call behind a server route before any public deployment.
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      system,
       messages: [{ role: 'user', content: userContent }],
+      system,
+      max_tokens: maxTokens,
     }),
   })
 
