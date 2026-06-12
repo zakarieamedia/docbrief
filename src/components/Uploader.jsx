@@ -107,6 +107,7 @@ export default function Uploader({ doc, onExtracted, disabled }) {
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
+          if (disabled || extracting) return
           if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click()
         }}
         className={`rounded-lg border-2 border-dashed px-6 py-10 text-center cursor-pointer transition-colors

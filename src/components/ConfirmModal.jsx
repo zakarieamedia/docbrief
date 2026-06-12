@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+
 function Row({ label, value }) {
   return (
     <div className="flex items-start justify-between gap-4">
@@ -8,6 +10,14 @@ function Row({ label, value }) {
 }
 
 export default function ConfirmModal({ doc, estimate, onConfirm, onCancel }) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCancel])
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"

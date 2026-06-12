@@ -96,7 +96,7 @@ export default function Admin() {
       cost += row.actual_cost != null ? Number(row.actual_cost) : estimateRowCost(row.chunks_processed)
 
       const key = row.user_id
-      const user = users.get(key) || { email: displayUser(row), count: 0, lastActive: created }
+      const user = users.get(key) || { id: key, email: displayUser(row), count: 0, lastActive: created }
       user.count++
       if (created > user.lastActive) user.lastActive = created
       if (row.user_email) user.email = row.user_email
@@ -167,7 +167,7 @@ export default function Admin() {
       >
         {stats.users.length
           ? stats.users.map((user) => (
-              <tr key={user.email}>
+              <tr key={user.id}>
                 <td className="px-4 py-2.5 text-gray-800">{user.email}</td>
                 <td className="px-4 py-2.5 text-gray-800">{user.count}</td>
                 <td className="px-4 py-2.5 text-gray-800 whitespace-nowrap">

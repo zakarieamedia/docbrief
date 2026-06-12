@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { jsPDF } from 'jspdf'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { supabase } from '../lib/supabase'
 
 const NAVY = [31, 56, 100] // #1F3864
@@ -47,28 +48,28 @@ function summaryToText(summary, fileName) {
     ...section('Document Overview', summary.overview ? [summary.overview] : []),
     ...section(
       'Key Parties',
-      (summary.parties ?? []).map((p) => `- ${p.name}: ${p.role}`),
+      (summary.parties ?? []).map((p) => `- ${p.name || '—'}: ${p.role || '—'}`),
     ),
     ...section(
       'Financial Terms',
       (summary.financialTerms ?? []).map(
-        (f) => `- ${f.item}: ${f.amount}${f.notes ? ` (${f.notes})` : ''}`,
+        (f) => `- ${f.item || '—'}: ${f.amount || '—'}${f.notes ? ` (${f.notes})` : ''}`,
       ),
     ),
     ...section(
       'Key Obligations',
       (summary.keyObligations ?? []).map(
-        (o) => `- ${o.party}: ${o.obligation}${o.deadline ? ` — due ${o.deadline}` : ''}`,
+        (o) => `- ${o.party || '—'}: ${o.obligation || '—'}${o.deadline ? ` — due ${o.deadline}` : ''}`,
       ),
     ),
     ...section(
       'Important Dates',
-      (summary.importantDates ?? []).map((d) => `- ${d.date}: ${d.event}`),
+      (summary.importantDates ?? []).map((d) => `- ${d.date || '—'}: ${d.event || '—'}`),
     ),
     ...section(
       'Risks & Flags',
       (summary.risksAndFlags ?? []).map(
-        (r) => `- [${(r.severity || 'low').toUpperCase()}] ${r.description}`,
+        (r) => `- [${String(r.severity || 'low').toUpperCase()}] ${r.description || '—'}`,
       ),
     ),
   ]
@@ -160,14 +161,21 @@ function downloadStructuredPdf(summary, result) {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(19)
   doc.setTextColor(...NAVY)
-  const titleLines = doc.splitTextToSize(summary.documentTitle || result.fileName, contentWidth)
+  const titleLines = doc.splitTextToSize(
+    summary.documentTitle || result.fileName || 'Document Summary',
+    contentWidth,
+  )
   doc.text(titleLines, margin, y + 14)
   y += titleLines.length * 22 + 4
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.setTextColor(110)
-  const meta = [summary.documentType, summary.preparedDate, `Source: ${result.fileName}`]
+  const meta = [
+    summary.documentType,
+    summary.preparedDate,
+    result.fileName ? `Source: ${result.fileName}` : '',
+  ]
     .filter(Boolean)
     .join('   ·   ')
   doc.text(meta, margin, y + 8)
@@ -259,7 +267,7 @@ function downloadStructuredPdf(summary, result) {
     doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, footerY + 14, { align: 'right' })
   }
 
-  const baseName = result.fileName.replace(/\.[^.]+$/, '')
+  const baseName = (result.fileName || 'document').replace(/\.[^.]+$/, '')
   doc.save(`${baseName}-summary.pdf`)
 }
 
@@ -308,7 +316,7 @@ function downloadTextPdf(result) {
     })
   }
 
-  const baseName = result.fileName.replace(/\.[^.]+$/, '')
+  const baseName = (result.fileName || 'document').replace(/\.[^.]+$/, '')
   doc.save(`${baseName}-summary.pdf`)
 }
 
@@ -337,7 +345,8 @@ function DataTable({ columns, rows }) {
     return <p className="px-4 py-3 text-sm text-gray-500 italic">None identified.</p>
   }
   return (
-    <table className="w-full text-sm">
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
       <thead>
         <tr className="bg-gray-50 border-b border-gray-200">
           {columns.map((col) => (
@@ -361,7 +370,8 @@ function DataTable({ columns, rows }) {
           </tr>
         ))}
       </tbody>
-    </table>
+      </table>
+    </div>
   )
 }
 
@@ -485,9 +495,14 @@ export default function ResultView({ result, session, onSaved }) {
   }
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(plainText)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(plainText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard API requires a secure context and user permission.
+      setError('Could not copy to clipboard.')
+    }
   }
 
   const handleDownload = () => {
@@ -567,7 +582,7 @@ export default function ResultView({ result, session, onSaved }) {
               [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:space-y-1
               [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_ol]:space-y-1
               [&_hr]:my-4 [&_hr]:border-gray-200"
-            dangerouslySetInnerHTML={{ __html: marked.parse(plainText) }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(plainText)) }}
           />
         </div>
       )}

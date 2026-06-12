@@ -16,7 +16,7 @@ function previewText(text) {
   return text
 }
 
-export default function History({ session, version, onSelect }) {
+export default function History({ session, version, onSelect, onDelete }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -26,9 +26,12 @@ export default function History({ session, version, onSelect }) {
     async function load() {
       setLoading(true)
       setError('')
+      // Scope to the signed-in user explicitly: the admin's RLS policies
+      // would otherwise mix every user's rows into their personal sidebar.
       const { data, error } = await supabase
         .from('summaries')
         .select('*')
+        .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
       if (cancelled) return
       if (error) setError(error.message)
@@ -41,10 +44,26 @@ export default function History({ session, version, onSelect }) {
     }
   }, [session.user.id, version])
 
-  const handleDelete = async (e, id) => {
+  const handleDelete = async (e, item) => {
     e.stopPropagation()
-    const { error } = await supabase.from('summaries').delete().eq('id', id)
-    if (!error) setItems((prev) => prev.filter((item) => item.id !== id))
+    if (!window.confirm(`Delete the summary of "${item.file_name}"? This cannot be undone.`)) {
+      return
+    }
+    setError('')
+    const { data, error } = await supabase
+      .from('summaries')
+      .delete()
+      .eq('id', item.id)
+      .select()
+    if (error) {
+      setError(error.message)
+    } else if (!data?.length) {
+      // RLS silently filters rows the policy doesn't allow deleting.
+      setError('Delete was blocked by row-level security. Apply the policies in supabase/schema.sql to the database.')
+    } else {
+      setItems((prev) => prev.filter((i) => i.id !== item.id))
+      onDelete?.(item.id)
+    }
   }
 
   return (
@@ -72,7 +91,9 @@ export default function History({ session, version, onSelect }) {
           </p>
         )}
 
-        {items.map((item) => (
+        {!loading && !error && items.map((item) => {
+          const preview = previewText(item.summary_text)
+          return (
           <div
             key={item.id}
             onClick={() => onSelect(item)}
@@ -92,14 +113,14 @@ export default function History({ session, version, onSelect }) {
                   {new Date(item.created_at).toLocaleDateString()} · {item.depth}
                 </p>
                 <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                  {previewText(item.summary_text).slice(0, 80)}
-                  {previewText(item.summary_text).length > 80 ? '…' : ''}
+                  {preview.slice(0, 80)}
+                  {preview.length > 80 ? '…' : ''}
                 </p>
               </div>
               <button
-                onClick={(e) => handleDelete(e, item.id)}
+                onClick={(e) => handleDelete(e, item)}
                 title="Delete"
-                className="shrink-0 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                className="shrink-0 text-gray-300 hover:text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1"
               >
                 <svg
                   className="h-4 w-4"
@@ -117,7 +138,8 @@ export default function History({ session, version, onSelect }) {
               </button>
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

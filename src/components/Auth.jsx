@@ -33,6 +33,25 @@ export default function Auth() {
     }
   }
 
+  const handleForgotPassword = async () => {
+    setError('')
+    setNotice('')
+    if (!email.trim()) {
+      setError('Enter your email above first, then click "Forgot password?".')
+      return
+    }
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email)
+      if (error) throw error
+      setNotice('Check your email for a password reset link.')
+    } catch (err) {
+      setError(err.message || 'Could not send the reset email.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200 p-8">
@@ -102,6 +121,19 @@ export default function Auth() {
             {loading ? 'Please wait…' : mode === 'login' ? 'Log In' : 'Sign Up'}
           </button>
         </form>
+
+        {mode === 'login' && (
+          <p className="mt-3 text-center text-sm">
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={loading}
+              className="font-medium text-navy hover:underline disabled:opacity-50"
+            >
+              Forgot password?
+            </button>
+          </p>
+        )}
 
         <p className="mt-6 text-center text-sm text-gray-500">
           {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}

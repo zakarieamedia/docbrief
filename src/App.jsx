@@ -37,6 +37,18 @@ export default function App() {
   // Analyze settings awaiting user confirmation in the modal; null = no modal.
   const [pendingAnalysis, setPendingAnalysis] = useState(null) // { depth, format, focus }
 
+  // Reset everything tied to the signed-in user — covers every sign-out
+  // path (button, expiry, another tab) so the next user on this browser
+  // sees none of the previous user's document, summary, or pending modal.
+  const clearUserState = () => {
+    localStorage.removeItem(STORAGE_KEY)
+    setResult(null)
+    setDoc(null)
+    setError('')
+    setProgress(null)
+    setPendingAnalysis(null)
+  }
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
@@ -44,12 +56,7 @@ export default function App() {
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession)
-      // Covers every sign-out path (button, expiry, another tab) so the
-      // next user on this browser doesn't see the previous user's summary.
-      if (!newSession) {
-        localStorage.removeItem(STORAGE_KEY)
-        setResult(null)
-      }
+      if (!newSession) clearUserState()
     })
     return () => listener.subscription.unsubscribe()
   }, [])
@@ -84,6 +91,7 @@ export default function App() {
         setProgress,
       )
       setResult({
+        id: crypto.randomUUID?.() ?? String(Math.random()),
         summary,
         wordCount: doc.wordCount,
         chunksProcessed,
@@ -126,6 +134,7 @@ export default function App() {
           version={historyVersion}
           onSelect={(row) => {
             setResult({
+              id: row.id,
               summary: row.summary_text,
               wordCount: row.word_count,
               chunksProcessed: row.chunks_processed,
@@ -138,6 +147,11 @@ export default function App() {
               saved: true,
             })
             setError('')
+          }}
+          onDelete={(id) => {
+            // The deleted row may be the summary currently on screen —
+            // clearing result also removes it from localStorage.
+            setResult((prev) => (prev && prev.id === id ? null : prev))
           }}
         />
       </aside>
@@ -176,6 +190,9 @@ export default function App() {
 
         {result && (
           <ResultView
+            // Remount per result so internal state (e.g. `saved`) resets when
+            // a history row replaces a fresh analysis on screen.
+            key={result.id ?? 'rehydrated'}
             result={result}
             session={session}
             onSaved={() => setHistoryVersion((v) => v + 1)}
@@ -209,8 +226,7 @@ export default function App() {
               <span className="hidden sm:block text-sm text-white/80">{session.user.email}</span>
               <button
                 onClick={() => {
-                  localStorage.removeItem(STORAGE_KEY)
-                  setResult(null)
+                  clearUserState()
                   supabase.auth.signOut()
                 }}
                 className="text-sm font-medium bg-white/10 hover:bg-white/20 rounded-lg px-3 py-1.5 transition-colors"

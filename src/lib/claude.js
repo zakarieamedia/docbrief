@@ -1,6 +1,9 @@
 const API_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 2000
+// The structured JSON summary needs headroom beyond the per-chunk limit —
+// a response cut off at max_tokens is unparseable JSON.
+const FINAL_MAX_TOKENS = 3000
 const CHUNK_SIZE = 150000
 
 // Sonnet pricing: $3 / MTok input, $15 / MTok output.
@@ -90,7 +93,7 @@ export function splitIntoChunks(text, size = CHUNK_SIZE) {
   return chunks
 }
 
-async function callClaude(system, userContent) {
+async function callClaude(system, userContent, maxTokens = MAX_TOKENS) {
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: {
@@ -104,7 +107,7 @@ async function callClaude(system, userContent) {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: MAX_TOKENS,
+      max_tokens: maxTokens,
       system,
       messages: [{ role: 'user', content: userContent }],
     }),
@@ -131,6 +134,7 @@ async function callClaude(system, userContent) {
       .map((block) => block.text)
       .join('\n'),
     usage: data.usage,
+    stopReason: data.stop_reason,
   }
 }
 
@@ -169,11 +173,15 @@ export async function summarizeDocument(text, { focus }, onProgress) {
   // directly into the final structured format.
   if (total === 1) {
     onProgress?.({ current: 1, total: 1, percent: 0, stage: 'Summarizing document' })
-    const { text: response, usage } = await callClaude(
+    const { text: response, usage, stopReason } = await callClaude(
       FINAL_SYSTEM_PROMPT,
       `${focusLine}Summarize this document:\n\n${chunks[0]}`,
+      FINAL_MAX_TOKENS,
     )
     track(usage)
+    if (stopReason === 'max_tokens') {
+      throw new Error('The summary exceeded the response limit and was cut off. Please try again.')
+    }
     onProgress?.({ current: 1, total: 1, percent: 100, stage: 'Done' })
     return { summary: parseSummary(response), chunksProcessed: 1, usage: totalUsage() }
   }
@@ -200,13 +208,17 @@ export async function summarizeDocument(text, { focus }, onProgress) {
     percent: 95,
     stage: 'Consolidating final summary',
   })
-  const { text: response, usage } = await callClaude(
+  const { text: response, usage, stopReason } = await callClaude(
     FINAL_SYSTEM_PROMPT,
     `Below are ${total} partial summaries of consecutive sections of one document. ` +
       `Merge them into a single final summary.\n${focusLine}\n` +
       chunkSummaries.map((s, i) => `--- Part ${i + 1} ---\n${s}`).join('\n\n'),
+    FINAL_MAX_TOKENS,
   )
   track(usage)
+  if (stopReason === 'max_tokens') {
+    throw new Error('The summary exceeded the response limit and was cut off. Please try again.')
+  }
 
   onProgress?.({ current: total, total, percent: 100, stage: 'Done' })
   return { summary: parseSummary(response), chunksProcessed: total, usage: totalUsage() }
