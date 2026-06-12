@@ -31,8 +31,11 @@ Professional document summarizer for legal, financial, real estate, and business
 
    ```
    # Server-side only (read by api/summarize.js via process.env — no VITE_ prefix,
-   # so it is never bundled into the browser build)
+   # so neither is ever bundled into the browser build)
    ANTHROPIC_API_KEY=your_key_here
+   # Supabase dashboard → Settings → API → JWT Secret; used to verify that
+   # /api/summarize callers are authenticated DocBrief users
+   SUPABASE_JWT_SECRET=your_jwt_secret_here
 
    # Client-side (safe to expose: the anon key is protected by RLS)
    VITE_SUPABASE_URL=your_url_here
@@ -54,14 +57,15 @@ Professional document summarizer for legal, financial, real estate, and business
 
 Claude calls are proxied through `api/summarize.js`, which reads
 `ANTHROPIC_API_KEY` from server-side environment variables — the key never
-ships in the browser bundle. The endpoint pins the model and caps
-`max_tokens` server-side. It is not authenticated, however: anyone who can
-reach the deployed site can call it, so consider verifying the Supabase JWT
-in the function before opening the app to untrusted users.
+ships in the browser bundle. The endpoint pins the model, caps
+`max_tokens` server-side, and rejects requests without a valid Supabase
+access token (verified against `SUPABASE_JWT_SECRET`), so only logged-in
+DocBrief users can spend API credits.
 
 ## Deployment
 
 `vercel.json` rewrites `/api/*` to the serverless functions and everything
 else to `index.html` so client-side routing works on Vercel. Set
-`ANTHROPIC_API_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and
-`VITE_ADMIN_EMAIL` in your Vercel project settings.
+`ANTHROPIC_API_KEY`, `SUPABASE_JWT_SECRET`, `VITE_SUPABASE_URL`,
+`VITE_SUPABASE_ANON_KEY`, and `VITE_ADMIN_EMAIL` in your Vercel project
+settings.

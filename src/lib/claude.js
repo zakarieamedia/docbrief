@@ -1,5 +1,8 @@
+import { supabase } from './supabase'
+
 // Claude calls go through the serverless proxy (api/summarize.js) so the
-// Anthropic API key never reaches the browser. The model is set server-side.
+// Anthropic API key never reaches the browser. The model is set server-side,
+// and the proxy only accepts requests from authenticated Supabase users.
 const API_URL = '/api/summarize'
 const MAX_TOKENS = 2000
 // The structured JSON summary needs headroom beyond the per-chunk limit —
@@ -95,9 +98,18 @@ export function splitIntoChunks(text, size = CHUNK_SIZE) {
 }
 
 async function callClaude(system, userContent, maxTokens = MAX_TOKENS) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData.session?.access_token
+  if (!accessToken) {
+    throw new Error('Your session has expired. Please log in again.')
+  }
+
   const response = await fetch(API_URL, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${accessToken}`,
+    },
     body: JSON.stringify({
       messages: [{ role: 'user', content: userContent }],
       system,

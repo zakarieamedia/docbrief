@@ -1,5 +1,8 @@
 // Vercel serverless function — keeps ANTHROPIC_API_KEY server-side.
-// The client (src/lib/claude.js) posts { messages, system, max_tokens }.
+// The client (src/lib/claude.js) posts { messages, system, max_tokens }
+// with a Supabase access token; only authenticated users can spend credits.
+import jwt from 'jsonwebtoken'
+
 export const maxDuration = 30
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
@@ -18,6 +21,26 @@ export default async function handler(req, res) {
     return res
       .status(500)
       .json({ error: { message: 'Server is missing ANTHROPIC_API_KEY.' } })
+  }
+
+  const jwtSecret = process.env.SUPABASE_JWT_SECRET
+  if (!jwtSecret) {
+    return res
+      .status(500)
+      .json({ error: { message: 'Server is missing SUPABASE_JWT_SECRET.' } })
+  }
+
+  // Supabase signs access tokens with the project JWT secret (HS256) and
+  // sets aud to "authenticated" for logged-in users.
+  const authHeader = req.headers.authorization || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+  if (!token) {
+    return res.status(401).json({ error: { message: 'Unauthorized' } })
+  }
+  try {
+    jwt.verify(token, jwtSecret, { audience: 'authenticated' })
+  } catch {
+    return res.status(401).json({ error: { message: 'Unauthorized' } })
   }
 
   const { messages, system, max_tokens } = req.body ?? {}
