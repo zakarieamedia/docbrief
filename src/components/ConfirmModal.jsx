@@ -36,13 +36,6 @@ export default function ConfirmModal({ doc, estimate, onConfirm, onCancel }) {
           <Row label="Estimated API Cost" value={`$${estimate.estimatedCost.toFixed(3)}`} />
         </dl>
 
-        {estimate.truncated && (
-          <p className="mx-6 mb-4 text-sm text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
-            This document is very large. Only the first ~600 pages will be fully
-            analyzed.
-          </p>
-        )}
-
         <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
           <button
             onClick={onCancel}

@@ -2,26 +2,21 @@ const API_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 2000
 const CHUNK_SIZE = 150000
-const MAX_INPUT_CHARS = 1500000
-const MAX_CHUNKS = 10
 
 // Rough blended cost of one API call at current chunk/output sizes.
 export const COST_PER_CALL = 0.015
 
 /**
  * Predict what summarizeDocument will do with this text, without calling
- * the API: chunk count after truncation, estimated cost (one call per
- * chunk plus a consolidation call when there are multiple chunks), and
- * whether the input exceeds the analyzable limit.
+ * the API: chunk count, and estimated cost (one call per chunk plus a
+ * consolidation call when there are multiple chunks).
  */
 export function estimateAnalysis(text) {
-  const analyzedLength = Math.min(text.length, MAX_INPUT_CHARS)
-  const chunks = Math.min(Math.max(Math.ceil(analyzedLength / CHUNK_SIZE), 1), MAX_CHUNKS)
+  const chunks = Math.max(Math.ceil(text.length / CHUNK_SIZE), 1)
   const calls = chunks > 1 ? chunks + 1 : 1
   return {
     chunks,
     estimatedCost: calls * COST_PER_CALL,
-    truncated: text.length > MAX_INPUT_CHARS,
   }
 }
 
@@ -128,16 +123,15 @@ async function callClaude(system, userContent) {
 }
 
 /**
- * Summarize a full document. Input is truncated to 1.5M chars, split into
- * 150k-char chunks (10 max), each chunk reduced to a few key bullets, then
- * consolidated into one structured summary object (see FINAL_SYSTEM_PROMPT
- * for its shape).
+ * Summarize a full document. The text is split into 150k-char chunks,
+ * each chunk reduced to a few key bullets, then consolidated into one
+ * structured summary object (see FINAL_SYSTEM_PROMPT for its shape).
  *
  * onProgress({ current, total, percent, stage }) fires before each API call.
  * Returns { summary, chunksProcessed }.
  */
 export async function summarizeDocument(text, { focus }, onProgress) {
-  const chunks = splitIntoChunks(text.slice(0, MAX_INPUT_CHARS)).slice(0, MAX_CHUNKS)
+  const chunks = splitIntoChunks(text)
   const total = chunks.length
   const focusLine = focus?.trim()
     ? `Pay particular attention to the following focus areas: ${focus.trim()}.\n`
