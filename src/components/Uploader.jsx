@@ -3,7 +3,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import mammoth from 'mammoth'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
-  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+  `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
 const ACCEPTED = ['.pdf', '.docx', '.txt', '.csv', '.md']
 
