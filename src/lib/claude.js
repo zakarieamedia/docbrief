@@ -5,6 +5,26 @@ const CHUNK_SIZE = 150000
 const MAX_INPUT_CHARS = 450000
 const MAX_CHUNKS = 8
 
+// Rough blended cost of one API call at current chunk/output sizes.
+export const COST_PER_CALL = 0.015
+
+/**
+ * Predict what summarizeDocument will do with this text, without calling
+ * the API: chunk count after truncation, estimated cost (one call per
+ * chunk plus a consolidation call when there are multiple chunks), and
+ * whether the input exceeds the analyzable limit.
+ */
+export function estimateAnalysis(text) {
+  const analyzedLength = Math.min(text.length, MAX_INPUT_CHARS)
+  const chunks = Math.min(Math.max(Math.ceil(analyzedLength / CHUNK_SIZE), 1), MAX_CHUNKS)
+  const calls = chunks > 1 ? chunks + 1 : 1
+  return {
+    chunks,
+    estimatedCost: calls * COST_PER_CALL,
+    truncated: text.length > MAX_INPUT_CHARS,
+  }
+}
+
 const CHUNK_SYSTEM_PROMPT =
   'You are an expert document analyst. Extract ONLY the most critical information ' +
   'from this chunk in 3-4 bullet points maximum. Focus exclusively on: parties and ' +

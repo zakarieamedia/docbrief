@@ -463,6 +463,7 @@ export default function ResultView({ result, session, onSaved }) {
     try {
       const { error } = await supabase.from('summaries').insert({
         user_id: session.user.id,
+        user_email: session.user.email,
         file_name: result.fileName,
         file_type: result.fileType,
         word_count: result.wordCount,
@@ -470,6 +471,7 @@ export default function ResultView({ result, session, onSaved }) {
         format: result.format,
         focus: result.focus || null,
         summary_text: summary ? JSON.stringify(summary) : plainText,
+        chunks_processed: result.chunksProcessed ?? null,
       })
       if (error) throw error
       setSaved(true)
