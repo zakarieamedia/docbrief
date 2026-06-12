@@ -12,11 +12,51 @@ const CHUNK_SYSTEM_PROMPT =
   'extremely concise. No boilerplate, no obvious statements, no lengthy explanations.'
 
 const FINAL_SYSTEM_PROMPT =
-  'You are an expert document analyst. Produce a final summary under 600 words ' +
-  'total, in markdown, using exactly these section headings: "## Document Overview", ' +
-  '"## Key Parties", "## Financial Terms", "## Key Obligations", "## Important Dates", ' +
-  '"## Risks & Flags". Each section: maximum 4 bullet points. Ruthlessly cut anything ' +
-  'that is not decision-critical. Never invent facts that are not present in the source.'
+  'You are an expert document analyst. Respond with ONLY a single valid JSON object — ' +
+  'no markdown, no code fences, no commentary. Use exactly this shape:\n' +
+  '{\n' +
+  '  "documentTitle": string,\n' +
+  '  "documentType": string,\n' +
+  '  "preparedDate": string,\n' +
+  '  "parties": [{ "name": string, "role": string }],\n' +
+  '  "financialTerms": [{ "item": string, "amount": string, "notes": string }],\n' +
+  '  "keyObligations": [{ "party": string, "obligation": string, "deadline": string }],\n' +
+  '  "importantDates": [{ "date": string, "event": string }],\n' +
+  '  "risksAndFlags": [{ "severity": "high" | "medium" | "low", "description": string }],\n' +
+  '  "overview": string\n' +
+  '}\n' +
+  'The overview is 2-3 sentences maximum. Maximum 4 entries per array — keep only what ' +
+  'is decision-critical. Use "Not specified" when the document does not state something. ' +
+  'Never invent facts that are not present in the source.'
+
+// The model is instructed to return bare JSON, but defensively strip any
+// surrounding prose/code fences by slicing to the outermost braces.
+function parseSummary(text) {
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  if (start === -1 || end <= start) {
+    throw new Error('The model did not return a structured summary. Please try again.')
+  }
+  let raw
+  try {
+    raw = JSON.parse(text.slice(start, end + 1))
+  } catch {
+    throw new Error('Could not parse the structured summary. Please try again.')
+  }
+  const str = (v) => (typeof v === 'string' ? v : '')
+  const arr = (v) => (Array.isArray(v) ? v : [])
+  return {
+    documentTitle: str(raw.documentTitle),
+    documentType: str(raw.documentType),
+    preparedDate: str(raw.preparedDate),
+    parties: arr(raw.parties),
+    financialTerms: arr(raw.financialTerms),
+    keyObligations: arr(raw.keyObligations),
+    importantDates: arr(raw.importantDates),
+    risksAndFlags: arr(raw.risksAndFlags),
+    overview: str(raw.overview),
+  }
+}
 
 export function splitIntoChunks(text, size = CHUNK_SIZE) {
   const chunks = []
@@ -70,7 +110,8 @@ async function callClaude(system, userContent) {
 /**
  * Summarize a full document. Input is truncated to 450k chars, split into
  * 150k-char chunks (8 max), each chunk reduced to a few key bullets, then
- * consolidated into one structured final summary under 600 words.
+ * consolidated into one structured summary object (see FINAL_SYSTEM_PROMPT
+ * for its shape).
  *
  * onProgress({ current, total, percent, stage }) fires before each API call.
  * Returns { summary, chunksProcessed }.
@@ -86,12 +127,12 @@ export async function summarizeDocument(text, { focus }, onProgress) {
   // directly into the final structured format.
   if (total === 1) {
     onProgress?.({ current: 1, total: 1, percent: 0, stage: 'Summarizing document' })
-    const summary = await callClaude(
+    const response = await callClaude(
       FINAL_SYSTEM_PROMPT,
       `${focusLine}Summarize this document:\n\n${chunks[0]}`,
     )
     onProgress?.({ current: 1, total: 1, percent: 100, stage: 'Done' })
-    return { summary, chunksProcessed: 1 }
+    return { summary: parseSummary(response), chunksProcessed: 1 }
   }
 
   const chunkSummaries = []
@@ -115,7 +156,7 @@ export async function summarizeDocument(text, { focus }, onProgress) {
     percent: 95,
     stage: 'Consolidating final summary',
   })
-  const finalSummary = await callClaude(
+  const response = await callClaude(
     FINAL_SYSTEM_PROMPT,
     `Below are ${total} partial summaries of consecutive sections of one document. ` +
       `Merge them into a single final summary.\n${focusLine}\n` +
@@ -123,5 +164,5 @@ export async function summarizeDocument(text, { focus }, onProgress) {
   )
 
   onProgress?.({ current: total, total, percent: 100, stage: 'Done' })
-  return { summary: finalSummary, chunksProcessed: total }
+  return { summary: parseSummary(response), chunksProcessed: total }
 }

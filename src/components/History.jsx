@@ -1,6 +1,21 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+// New summaries store structured JSON in summary_text; older rows store
+// markdown/plain text. Show a human-readable preview for both.
+function previewText(text) {
+  if (!text) return ''
+  if (text.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text)
+      return parsed.overview || parsed.documentTitle || ''
+    } catch {
+      // fall through to raw text
+    }
+  }
+  return text
+}
+
 export default function History({ session, version, onSelect }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -77,8 +92,8 @@ export default function History({ session, version, onSelect }) {
                   {new Date(item.created_at).toLocaleDateString()} · {item.depth}
                 </p>
                 <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                  {item.summary_text?.slice(0, 80)}
-                  {item.summary_text?.length > 80 ? '…' : ''}
+                  {previewText(item.summary_text).slice(0, 80)}
+                  {previewText(item.summary_text).length > 80 ? '…' : ''}
                 </p>
               </div>
               <button
