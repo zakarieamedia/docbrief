@@ -3,20 +3,29 @@ const MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 2000
 const CHUNK_SIZE = 150000
 
-// Rough blended cost of one API call at current chunk/output sizes.
+// Sonnet pricing: $3 / MTok input, $15 / MTok output.
+export const INPUT_COST_PER_TOKEN = 0.000003
+export const OUTPUT_COST_PER_TOKEN = 0.000015
+
+// Rough blended cost of one API call — used only for history rows saved
+// before actual costs were recorded.
 export const COST_PER_CALL = 0.015
 
 /**
  * Predict what summarizeDocument will do with this text, without calling
- * the API: chunk count, and estimated cost (one call per chunk plus a
+ * the API: chunk count, and estimated cost. Input tokens ≈ chars / 4;
+ * output is bounded by MAX_TOKENS per call (one call per chunk plus a
  * consolidation call when there are multiple chunks).
  */
 export function estimateAnalysis(text) {
   const chunks = Math.max(Math.ceil(text.length / CHUNK_SIZE), 1)
   const calls = chunks > 1 ? chunks + 1 : 1
+  const inputTokens = text.length / 4
+  const cost =
+    inputTokens * INPUT_COST_PER_TOKEN + calls * MAX_TOKENS * OUTPUT_COST_PER_TOKEN
   return {
     chunks,
-    estimatedCost: calls * COST_PER_CALL,
+    estimatedCost: Math.round(cost * 1000) / 1000,
   }
 }
 
@@ -116,10 +125,13 @@ async function callClaude(system, userContent) {
   if (data.stop_reason === 'refusal') {
     throw new Error('The model declined to summarize this content.')
   }
-  return data.content
-    .filter((block) => block.type === 'text')
-    .map((block) => block.text)
-    .join('\n')
+  return {
+    text: data.content
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text)
+      .join('\n'),
+    usage: data.usage,
+  }
 }
 
 /**
@@ -128,7 +140,8 @@ async function callClaude(system, userContent) {
  * structured summary object (see FINAL_SYSTEM_PROMPT for its shape).
  *
  * onProgress({ current, total, percent, stage }) fires before each API call.
- * Returns { summary, chunksProcessed }.
+ * Returns { summary, chunksProcessed, usage } where usage holds the summed
+ * input/output tokens across all calls and the actual cost in dollars.
  */
 export async function summarizeDocument(text, { focus }, onProgress) {
   const chunks = splitIntoChunks(text)
@@ -137,16 +150,32 @@ export async function summarizeDocument(text, { focus }, onProgress) {
     ? `Pay particular attention to the following focus areas: ${focus.trim()}.\n`
     : ''
 
+  let inputTokens = 0
+  let outputTokens = 0
+  const track = (usage) => {
+    inputTokens += usage?.input_tokens ?? 0
+    outputTokens += usage?.output_tokens ?? 0
+  }
+  const totalUsage = () => ({
+    inputTokens,
+    outputTokens,
+    actualCost:
+      Math.round(
+        (inputTokens * INPUT_COST_PER_TOKEN + outputTokens * OUTPUT_COST_PER_TOKEN) * 1e6,
+      ) / 1e6,
+  })
+
   // Single-chunk documents skip the map-reduce pass — summarize the full text
   // directly into the final structured format.
   if (total === 1) {
     onProgress?.({ current: 1, total: 1, percent: 0, stage: 'Summarizing document' })
-    const response = await callClaude(
+    const { text: response, usage } = await callClaude(
       FINAL_SYSTEM_PROMPT,
       `${focusLine}Summarize this document:\n\n${chunks[0]}`,
     )
+    track(usage)
     onProgress?.({ current: 1, total: 1, percent: 100, stage: 'Done' })
-    return { summary: parseSummary(response), chunksProcessed: 1 }
+    return { summary: parseSummary(response), chunksProcessed: 1, usage: totalUsage() }
   }
 
   const chunkSummaries = []
@@ -157,10 +186,11 @@ export async function summarizeDocument(text, { focus }, onProgress) {
       percent: Math.round((i / total) * 100),
       stage: `Analyzing chunk ${i + 1} of ${total}`,
     })
-    const summary = await callClaude(
+    const { text: summary, usage } = await callClaude(
       CHUNK_SYSTEM_PROMPT,
       `${focusLine}This is part ${i + 1} of ${total} of a larger document:\n\n${chunks[i]}`,
     )
+    track(usage)
     chunkSummaries.push(summary)
   }
 
@@ -170,13 +200,14 @@ export async function summarizeDocument(text, { focus }, onProgress) {
     percent: 95,
     stage: 'Consolidating final summary',
   })
-  const response = await callClaude(
+  const { text: response, usage } = await callClaude(
     FINAL_SYSTEM_PROMPT,
     `Below are ${total} partial summaries of consecutive sections of one document. ` +
       `Merge them into a single final summary.\n${focusLine}\n` +
       chunkSummaries.map((s, i) => `--- Part ${i + 1} ---\n${s}`).join('\n\n'),
   )
+  track(usage)
 
   onProgress?.({ current: total, total, percent: 100, stage: 'Done' })
-  return { summary: parseSummary(response), chunksProcessed: total }
+  return { summary: parseSummary(response), chunksProcessed: total, usage: totalUsage() }
 }

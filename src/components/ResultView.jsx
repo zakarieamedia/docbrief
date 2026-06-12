@@ -472,6 +472,7 @@ export default function ResultView({ result, session, onSaved }) {
         focus: result.focus || null,
         summary_text: summary ? JSON.stringify(summary) : plainText,
         chunks_processed: result.chunksProcessed ?? null,
+        actual_cost: result.actualCost ?? null,
       })
       if (error) throw error
       setSaved(true)
@@ -497,7 +498,7 @@ export default function ResultView({ result, session, onSaved }) {
   return (
     <div className="space-y-4">
       {/* Metric cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <MetricCard
           label="Word Count"
           value={result.wordCount != null ? result.wordCount.toLocaleString() : '—'}
@@ -508,6 +509,10 @@ export default function ResultView({ result, session, onSaved }) {
         />
         <MetricCard label="Depth" value={result.depth} />
         <MetricCard label="Format" value={result.format} />
+        <MetricCard
+          label="Actual Cost"
+          value={result.actualCost != null ? `$${Number(result.actualCost).toFixed(3)}` : '—'}
+        />
       </div>
 
       {/* Document header + actions */}

@@ -10,6 +10,7 @@ create table summaries (
   focus text,
   summary_text text,
   chunks_processed int,
+  actual_cost numeric,
   created_at timestamp default now()
 );
 alter table summaries enable row level security;
@@ -24,7 +25,9 @@ create policy "Admin reads all summaries" on summaries
 create policy "Admin deletes any summary" on summaries
   for delete using ((auth.jwt() ->> 'email') = 'zakarie.amedia07@gmail.com');
 
--- Migration for databases created before user_email / chunks_processed:
+-- Migration for databases created before user_email / chunks_processed /
+-- actual_cost:
 --   alter table summaries add column user_email text;
 --   alter table summaries add column chunks_processed int;
+--   alter table summaries add column actual_cost numeric;
 --   (then run the two admin policies above)

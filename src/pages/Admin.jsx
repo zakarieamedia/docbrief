@@ -92,7 +92,8 @@ export default function Admin() {
       const created = new Date(row.created_at)
       if (created >= startOfMonth) month++
       if (created >= startOfWeek) week++
-      cost += estimateRowCost(row.chunks_processed)
+      // Prefer the recorded actual cost; estimate for rows saved before it existed.
+      cost += row.actual_cost != null ? Number(row.actual_cost) : estimateRowCost(row.chunks_processed)
 
       const key = row.user_id
       const user = users.get(key) || { email: displayUser(row), count: 0, lastActive: created }

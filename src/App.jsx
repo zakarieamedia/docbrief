@@ -78,7 +78,7 @@ export default function App() {
     setError('')
     setResult(null)
     try {
-      const { summary, chunksProcessed } = await summarizeDocument(
+      const { summary, chunksProcessed, usage } = await summarizeDocument(
         doc.text,
         { depth, format, focus },
         setProgress,
@@ -87,6 +87,7 @@ export default function App() {
         summary,
         wordCount: doc.wordCount,
         chunksProcessed,
+        actualCost: usage?.actualCost ?? null,
         depth,
         format,
         focus,
@@ -128,6 +129,7 @@ export default function App() {
               summary: row.summary_text,
               wordCount: row.word_count,
               chunksProcessed: row.chunks_processed,
+              actualCost: row.actual_cost != null ? Number(row.actual_cost) : null,
               depth: row.depth,
               format: row.format,
               focus: row.focus,
