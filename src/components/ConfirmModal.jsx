@@ -38,7 +38,7 @@ export default function ConfirmModal({ doc, estimate, onConfirm, onCancel }) {
 
         {estimate.truncated && (
           <p className="mx-6 mb-4 text-sm text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
-            This document is very large. Only the first ~180 pages will be fully
+            This document is very large. Only the first ~600 pages will be fully
             analyzed.
           </p>
         )}

@@ -2,8 +2,8 @@ const API_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 2000
 const CHUNK_SIZE = 150000
-const MAX_INPUT_CHARS = 450000
-const MAX_CHUNKS = 8
+const MAX_INPUT_CHARS = 1500000
+const MAX_CHUNKS = 10
 
 // Rough blended cost of one API call at current chunk/output sizes.
 export const COST_PER_CALL = 0.015
@@ -128,8 +128,8 @@ async function callClaude(system, userContent) {
 }
 
 /**
- * Summarize a full document. Input is truncated to 450k chars, split into
- * 150k-char chunks (8 max), each chunk reduced to a few key bullets, then
+ * Summarize a full document. Input is truncated to 1.5M chars, split into
+ * 150k-char chunks (10 max), each chunk reduced to a few key bullets, then
  * consolidated into one structured summary object (see FINAL_SYSTEM_PROMPT
  * for its shape).
  *

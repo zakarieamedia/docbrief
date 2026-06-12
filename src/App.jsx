@@ -37,10 +37,12 @@ export default function App() {
   const isAdmin =
     Boolean(session) && session.user.email === import.meta.env.VITE_ADMIN_EMAIL
 
-  // API calls start only after the user confirms in the modal.
+  // The admin confirms cost in the modal first; everyone else goes
+  // straight to analysis.
   const handleAnalyzeRequest = (settings) => {
     if (!doc || processing) return
-    setPendingAnalysis(settings)
+    if (isAdmin) setPendingAnalysis(settings)
+    else runAnalysis(settings)
   }
 
   const runAnalysis = async ({ depth, format, focus }) => {
