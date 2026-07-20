@@ -1,9 +1,16 @@
 import { supabase } from './supabase'
 
 // Claude calls go through the serverless proxy (api/summarize.js) so the
-// Anthropic API key never reaches the browser. The model is set server-side,
-// and the proxy only accepts requests from authenticated Supabase users.
+// Anthropic API key never reaches the browser. The proxy only accepts requests
+// from authenticated Supabase users, and only for models on its allowlist.
 const API_URL = '/api/summarize'
+
+// Model per task. Summarization needs Sonnet's depth; document Q&A is well
+// within Haiku's reach at a fraction of the cost. The proxy validates these
+// against its own allowlist — keep the two lists in sync.
+const SUMMARY_MODEL = 'claude-sonnet-4-6'
+const CHAT_MODEL = 'claude-haiku-4-5'
+
 const MAX_TOKENS = 2000
 // The structured JSON summary needs headroom beyond the per-chunk limit —
 // a response cut off at max_tokens is unparseable JSON.
@@ -98,10 +105,10 @@ export function splitIntoChunks(text, size = CHUNK_SIZE) {
 }
 
 // Shared transport for every Claude call. Attaches the Supabase access token,
-// posts { messages, system, max_tokens } to the proxy, and normalizes the
-// response. Returns { text, usage, stopReason } — callers decide how to treat
-// a "refusal" stop reason.
-async function postToProxy(messages, system, maxTokens) {
+// posts { messages, system, max_tokens, model } to the proxy, and normalizes
+// the response. Returns { text, usage, stopReason } — callers decide how to
+// treat a "refusal" stop reason.
+async function postToProxy(messages, system, maxTokens, model) {
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData.session?.access_token
   if (!accessToken) {
@@ -118,6 +125,7 @@ async function postToProxy(messages, system, maxTokens) {
       messages,
       system,
       max_tokens: maxTokens,
+      model,
     }),
   })
 
@@ -144,7 +152,12 @@ async function postToProxy(messages, system, maxTokens) {
 }
 
 async function callClaude(system, userContent, maxTokens = MAX_TOKENS) {
-  const result = await postToProxy([{ role: 'user', content: userContent }], system, maxTokens)
+  const result = await postToProxy(
+    [{ role: 'user', content: userContent }],
+    system,
+    maxTokens,
+    SUMMARY_MODEL,
+  )
   if (result.stopReason === 'refusal') {
     throw new Error('The model declined to summarize this content.')
   }
@@ -274,6 +287,7 @@ export async function askQuestion(question, documentText, conversationHistory = 
     messages,
     CHAT_SYSTEM_PROMPT,
     CHAT_MAX_TOKENS,
+    CHAT_MODEL,
   )
   if (stopReason === 'refusal') {
     throw new Error('The model declined to answer that question.')

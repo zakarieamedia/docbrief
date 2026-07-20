@@ -6,7 +6,11 @@ import jwt from 'jsonwebtoken'
 export const maxDuration = 30
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-sonnet-4-6'
+// The client picks a model per task (Sonnet for summaries, Haiku for Q&A), but
+// the server only ever forwards a model on this allowlist — an untrusted client
+// can't point the proxy at an arbitrary (and arbitrarily expensive) model.
+const ALLOWED_MODELS = ['claude-sonnet-4-6', 'claude-haiku-4-5']
+const DEFAULT_MODEL = 'claude-sonnet-4-6'
 // Hard ceiling regardless of what the client asks for.
 const MAX_TOKENS_LIMIT = 4096
 
@@ -43,11 +47,20 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: { message: 'Unauthorized' } })
   }
 
-  const { messages, system, max_tokens } = req.body ?? {}
+  const { messages, system, max_tokens, model } = req.body ?? {}
   if (!Array.isArray(messages) || messages.length === 0) {
     return res
       .status(400)
       .json({ error: { message: 'Request body must include a non-empty "messages" array.' } })
+  }
+
+  // Fall back to the default when the client omits a model, but reject anything
+  // outside the allowlist rather than forwarding it to Anthropic.
+  const selectedModel = model ?? DEFAULT_MODEL
+  if (!ALLOWED_MODELS.includes(selectedModel)) {
+    return res
+      .status(400)
+      .json({ error: { message: `Unsupported model "${selectedModel}".` } })
   }
 
   try {
@@ -59,7 +72,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: selectedModel,
         max_tokens: Math.min(Number(max_tokens) || 2000, MAX_TOKENS_LIMIT),
         system,
         messages,
