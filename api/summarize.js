@@ -1,7 +1,7 @@
 // Vercel serverless function — keeps ANTHROPIC_API_KEY server-side.
 // The client (src/lib/claude.js) posts { messages, system, max_tokens }
 // with a Supabase access token; only authenticated users can spend credits.
-import jwt from 'jsonwebtoken'
+import { createClient } from '@supabase/supabase-js'
 
 export const maxDuration = 30
 
@@ -27,23 +27,30 @@ export default async function handler(req, res) {
       .json({ error: { message: 'Server is missing ANTHROPIC_API_KEY.' } })
   }
 
-  const jwtSecret = process.env.SUPABASE_JWT_SECRET
-  if (!jwtSecret) {
+  // Verify the caller with Supabase directly rather than validating a JWT
+  // locally — projects created with ECC signing keys no longer expose a
+  // symmetric SUPABASE_JWT_SECRET to verify against.
+  const supabaseUrl = process.env.SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !serviceRoleKey) {
     return res
       .status(500)
-      .json({ error: { message: 'Server is missing SUPABASE_JWT_SECRET.' } })
+      .json({ error: { message: 'Server is missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.' } })
   }
 
-  // Supabase signs access tokens with the project JWT secret (HS256) and
-  // sets aud to "authenticated" for logged-in users.
   const authHeader = req.headers.authorization || ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
   if (!token) {
     return res.status(401).json({ error: { message: 'Unauthorized' } })
   }
-  try {
-    jwt.verify(token, jwtSecret, { audience: 'authenticated' })
-  } catch {
+
+  // Admin client authenticated with the service role key; getUser(token)
+  // asks Supabase to validate the caller's access token and return the user.
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+  const { data: userData, error: userError } = await supabase.auth.getUser(token)
+  if (userError || !userData?.user) {
     return res.status(401).json({ error: { message: 'Unauthorized' } })
   }
 
