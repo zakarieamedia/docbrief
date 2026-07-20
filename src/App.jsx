@@ -7,6 +7,7 @@ import Uploader from './components/Uploader'
 import SummaryControls from './components/SummaryControls'
 import ConfirmModal from './components/ConfirmModal'
 import ResultView from './components/ResultView'
+import DocChat from './components/DocChat'
 import History from './components/History'
 import Admin from './pages/Admin'
 
@@ -198,6 +199,11 @@ export default function App() {
             onSaved={() => setHistoryVersion((v) => v + 1)}
           />
         )}
+
+        {/* Follow-up Q&A grounded in the uploaded document. The document text
+            lives only in `doc` (not persisted), so results rehydrated from
+            history or a refresh render the panel in its unavailable state. */}
+        {result && <DocChat documentText={doc?.text} />}
       </section>
     </main>
   )

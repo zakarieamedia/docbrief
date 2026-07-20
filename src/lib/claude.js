@@ -97,7 +97,11 @@ export function splitIntoChunks(text, size = CHUNK_SIZE) {
   return chunks
 }
 
-async function callClaude(system, userContent, maxTokens = MAX_TOKENS) {
+// Shared transport for every Claude call. Attaches the Supabase access token,
+// posts { messages, system, max_tokens } to the proxy, and normalizes the
+// response. Returns { text, usage, stopReason } — callers decide how to treat
+// a "refusal" stop reason.
+async function postToProxy(messages, system, maxTokens) {
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData.session?.access_token
   if (!accessToken) {
@@ -111,7 +115,7 @@ async function callClaude(system, userContent, maxTokens = MAX_TOKENS) {
       authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({
-      messages: [{ role: 'user', content: userContent }],
+      messages,
       system,
       max_tokens: maxTokens,
     }),
@@ -129,9 +133,6 @@ async function callClaude(system, userContent, maxTokens = MAX_TOKENS) {
   }
 
   const data = await response.json()
-  if (data.stop_reason === 'refusal') {
-    throw new Error('The model declined to summarize this content.')
-  }
   return {
     text: data.content
       .filter((block) => block.type === 'text')
@@ -140,6 +141,14 @@ async function callClaude(system, userContent, maxTokens = MAX_TOKENS) {
     usage: data.usage,
     stopReason: data.stop_reason,
   }
+}
+
+async function callClaude(system, userContent, maxTokens = MAX_TOKENS) {
+  const result = await postToProxy([{ role: 'user', content: userContent }], system, maxTokens)
+  if (result.stopReason === 'refusal') {
+    throw new Error('The model declined to summarize this content.')
+  }
+  return result
 }
 
 /**
@@ -226,4 +235,48 @@ export async function summarizeDocument(text, { focus }, onProgress) {
 
   onProgress?.({ current: total, total, percent: 100, stage: 'Done' })
   return { summary: parseSummary(response), chunksProcessed: total, usage: totalUsage() }
+}
+
+const CHAT_SYSTEM_PROMPT =
+  'You are a document assistant. The user has uploaded a document and wants to ask ' +
+  'questions about it. Answer questions accurately and specifically using only the ' +
+  'document content provided. If the answer is not in the document, say so clearly. ' +
+  'Quote relevant sections when helpful. Be concise and direct.'
+
+const CHAT_MAX_TOKENS = 1000
+
+/**
+ * Answer a follow-up question about the document. The whole conversation is
+ * replayed to Claude each turn, with the document text attached as context to
+ * the first user message so every answer stays grounded in the source.
+ *
+ * conversationHistory is the prior turns as [{ role, content }] (excluding the
+ * new question, which is appended here). Returns { text, usage }.
+ */
+export async function askQuestion(question, documentText, conversationHistory = []) {
+  const history = conversationHistory.map((m) => ({ role: m.role, content: m.content }))
+  const messages = [...history, { role: 'user', content: question }]
+
+  // The document rides along on the first user message only — replaying it on
+  // every turn would waste tokens and blow past the context window.
+  const firstUserIdx = messages.findIndex((m) => m.role === 'user')
+  if (firstUserIdx !== -1) {
+    messages[firstUserIdx] = {
+      role: 'user',
+      content:
+        'Here is the document to answer questions about:\n\n' +
+        `<document>\n${documentText}\n</document>\n\n` +
+        `Question: ${messages[firstUserIdx].content}`,
+    }
+  }
+
+  const { text, usage, stopReason } = await postToProxy(
+    messages,
+    CHAT_SYSTEM_PROMPT,
+    CHAT_MAX_TOKENS,
+  )
+  if (stopReason === 'refusal') {
+    throw new Error('The model declined to answer that question.')
+  }
+  return { text, usage }
 }
