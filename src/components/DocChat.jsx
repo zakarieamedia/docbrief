@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { askQuestion } from '../lib/claude'
+import Markdown from './Markdown'
 
 // A follow-up Q&A panel that appears under the summary. Every question replays
-// the full conversation to Claude, grounded in the extracted document text.
-export default function DocChat({ documentText }) {
-  const [messages, setMessages] = useState([]) // [{ role: 'user' | 'assistant', content }]
+// the full conversation to Claude, grounded in the extracted document text, and
+// gets back a conversational answer plus a citation pointing into the source.
+export default function DocChat({ documentText, documentPages }) {
+  // Each message is { role, content }. Assistant messages also carry `citation`.
+  const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -39,8 +42,13 @@ export default function DocChat({ documentText }) {
     setError('')
     setLoading(true)
     try {
-      const { text } = await askQuestion(question, documentText, history)
-      setMessages((prev) => [...prev, { role: 'assistant', content: text }])
+      const { answer, citation } = await askQuestion(
+        question,
+        documentText,
+        history,
+        documentPages,
+      )
+      setMessages((prev) => [...prev, { role: 'assistant', content: answer, citation }])
     } catch (err) {
       setError(err.message || 'Could not get an answer. Please try again.')
     } finally {
@@ -78,8 +86,13 @@ export default function DocChat({ documentText }) {
             </div>
           ) : (
             <div key={i} className="flex justify-start">
-              <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-gray-100 text-gray-800 text-sm leading-relaxed px-3.5 py-2 whitespace-pre-wrap break-words">
-                {msg.content}
+              <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-gray-100 text-gray-800 px-3.5 py-2 break-words">
+                <Markdown className="text-sm leading-relaxed [&_p]:mb-2 [&_:last-child]:mb-0 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2">
+                  {msg.content}
+                </Markdown>
+                {msg.citation && (
+                  <p className="mt-1.5 text-xs text-gray-500">Source: {msg.citation}</p>
+                )}
               </div>
             </div>
           ),

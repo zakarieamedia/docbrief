@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { jsPDF } from 'jspdf'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
 import { supabase } from '../lib/supabase'
+import Markdown from './Markdown'
 
 const NAVY = [31, 56, 100] // #1F3864
 
@@ -380,9 +379,9 @@ function StructuredSummary({ summary }) {
   return (
     <div className="space-y-4">
       <SectionCard title="Document Overview">
-        <p className="px-4 py-3 text-sm text-gray-800 leading-relaxed">
+        <Markdown className="px-4 py-3 text-sm text-gray-800 leading-relaxed [&_p]:mb-2 [&_:last-child]:mb-0 [&_strong]:font-semibold">
           {summary.overview || 'Not specified.'}
-        </p>
+        </Markdown>
       </SectionCard>
 
       <SectionCard title="Key Parties">
@@ -572,7 +571,7 @@ export default function ResultView({ result, session, onSaved }) {
       ) : (
         /* Legacy markdown/plain-text summaries saved before the structured format */
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div
+          <Markdown
             className="px-5 py-4 text-sm text-gray-800 leading-relaxed
               [&_h1]:text-lg [&_h1]:font-bold [&_h1]:text-navy [&_h1]:mt-4 [&_h1]:mb-2
               [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-navy [&_h2]:mt-4 [&_h2]:mb-2
@@ -582,8 +581,9 @@ export default function ResultView({ result, session, onSaved }) {
               [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:space-y-1
               [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_ol]:space-y-1
               [&_hr]:my-4 [&_hr]:border-gray-200"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(plainText)) }}
-          />
+          >
+            {plainText}
+          </Markdown>
         </div>
       )}
 

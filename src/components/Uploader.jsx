@@ -26,7 +26,9 @@ async function extractPdf(file) {
     const content = await page.getTextContent()
     pages.push(content.items.map((item) => item.str).join(' '))
   }
-  return pages.join('\n\n')
+  // Return the flat text (unchanged — summarization sees the same input) plus
+  // the per-page array, so Q&A can cite real page numbers.
+  return { text: pages.join('\n\n'), pages }
 }
 
 async function extractDocx(file) {
@@ -61,8 +63,14 @@ export default function Uploader({ doc, onExtracted, disabled }) {
     setExtracting(true)
     try {
       let text
-      if (ext === '.pdf') text = await extractPdf(file)
-      else if (ext === '.docx') text = await extractDocx(file)
+      // Per-page text for PDFs enables real page-number citations in Q&A; stays
+      // null for formats with no page concept (DOCX, TXT, CSV, MD).
+      let pages = null
+      if (ext === '.pdf') {
+        const extracted = await extractPdf(file)
+        text = extracted.text
+        pages = extracted.pages
+      } else if (ext === '.docx') text = await extractDocx(file)
       else text = await extractPlainText(file)
 
       if (!text?.trim()) {
@@ -74,6 +82,7 @@ export default function Uploader({ doc, onExtracted, disabled }) {
         type: ext.slice(1).toUpperCase(),
         text,
         wordCount: countWords(text),
+        pages,
       })
     } catch (err) {
       setError(err.message || 'Text extraction failed.')

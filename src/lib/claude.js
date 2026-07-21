@@ -251,22 +251,64 @@ export async function summarizeDocument(text, { focus }, onProgress) {
 }
 
 const CHAT_SYSTEM_PROMPT =
-  'You are a document assistant. The user has uploaded a document and wants to ask ' +
-  'questions about it. Answer questions accurately and specifically using only the ' +
-  'document content provided. If the answer is not in the document, say so clearly. ' +
-  'Quote relevant sections when helpful. Be concise and direct.'
+  'You are briefing Frank, an experienced real estate operator, on a document he just ' +
+  'uploaded. Answer his question conversationally in 2-4 sentences, like a knowledgeable ' +
+  'colleague walking him through his own paperwork — not like you are reading a form. ' +
+  'Never invent information that is not present in the provided text; if the document ' +
+  'does not answer the question, say so plainly.\n\n' +
+  'Respond with ONLY a single valid JSON object — no markdown, no code fences, no ' +
+  'commentary — of exactly this shape:\n' +
+  '{\n' +
+  '  "answer": string,\n' +
+  '  "citation": string\n' +
+  '}\n' +
+  'answer: the 2-4 sentence conversational reply. citation: exactly where this comes ' +
+  'from in the source document. When the provided text contains "[Page N]" markers, cite ' +
+  'the page it came from (e.g. "Page 4"); otherwise cite the section, exhibit, or clause ' +
+  'name (e.g. "Exhibit D" or "Section 5.2"). Never fabricate a page number that is not ' +
+  'shown in the text. Use an empty string for citation when the answer is not in the document.'
 
 const CHAT_MAX_TOKENS = 1000
+
+// The chat model is asked for bare JSON; defensively slice to the outermost
+// braces, and fall back to treating the whole reply as the answer so a
+// non-conforming response still renders something useful.
+function parseAnswer(text) {
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  if (start !== -1 && end > start) {
+    try {
+      const raw = JSON.parse(text.slice(start, end + 1))
+      return {
+        answer: typeof raw.answer === 'string' ? raw.answer : '',
+        citation: typeof raw.citation === 'string' ? raw.citation : '',
+      }
+    } catch {
+      // fall through to the raw-text fallback
+    }
+  }
+  return { answer: text.trim(), citation: '' }
+}
 
 /**
  * Answer a follow-up question about the document. The whole conversation is
  * replayed to Claude each turn, with the document text attached as context to
  * the first user message so every answer stays grounded in the source.
  *
+ * When `pages` (a per-page text array, PDFs only) is provided, the document is
+ * replayed with "[Page N]" markers so Claude can cite real page numbers;
+ * otherwise it cites section/exhibit names. `documentText` (doc.text) is left
+ * untouched so the summary path sees identical input.
+ *
  * conversationHistory is the prior turns as [{ role, content }] (excluding the
- * new question, which is appended here). Returns { text, usage }.
+ * new question). Returns { answer, citation, usage }.
  */
-export async function askQuestion(question, documentText, conversationHistory = []) {
+export async function askQuestion(question, documentText, conversationHistory = [], pages = null) {
+  const sourceText =
+    Array.isArray(pages) && pages.length
+      ? pages.map((p, i) => `[Page ${i + 1}]\n${p}`).join('\n\n')
+      : documentText
+
   const history = conversationHistory.map((m) => ({ role: m.role, content: m.content }))
   const messages = [...history, { role: 'user', content: question }]
 
@@ -278,7 +320,7 @@ export async function askQuestion(question, documentText, conversationHistory = 
       role: 'user',
       content:
         'Here is the document to answer questions about:\n\n' +
-        `<document>\n${documentText}\n</document>\n\n` +
+        `<document>\n${sourceText}\n</document>\n\n` +
         `Question: ${messages[firstUserIdx].content}`,
     }
   }
@@ -292,5 +334,5 @@ export async function askQuestion(question, documentText, conversationHistory = 
   if (stopReason === 'refusal') {
     throw new Error('The model declined to answer that question.')
   }
-  return { text, usage }
+  return { ...parseAnswer(text), usage }
 }

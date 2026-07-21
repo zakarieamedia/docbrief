@@ -202,8 +202,9 @@ export default function App() {
 
         {/* Follow-up Q&A grounded in the uploaded document. The document text
             lives only in `doc` (not persisted), so results rehydrated from
-            history or a refresh render the panel in its unavailable state. */}
-        {result && <DocChat documentText={doc?.text} />}
+            history or a refresh render the panel in its unavailable state.
+            `pages` (PDFs only) lets Q&A cite real page numbers. */}
+        {result && <DocChat documentText={doc?.text} documentPages={doc?.pages} />}
       </section>
     </main>
   )
