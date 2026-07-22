@@ -405,30 +405,37 @@ export default function ResultView({
     else downloadTextPdf(result)
   }
 
+  // The chat tab takes over the whole content area as a full-height chat —
+  // no action bar, its own pinned composer. Every other tab is a scrolling
+  // panel under the per-document action bar.
+  const chatActive = activeTab === 'chat'
+
   return (
-    <div className="space-y-4">
+    <div className={chatActive ? 'flex h-full flex-col' : 'space-y-4'}>
       {/* Action bar */}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <button
-          onClick={handleDownload}
-          className="rounded-lg bg-navy hover:bg-navy-dark text-white text-sm font-medium px-4 py-2 transition-colors"
-        >
-          Download PDF
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={saving || saved}
-          className="rounded-lg border border-navy text-navy hover:bg-navy-pale text-sm font-medium px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {saved ? 'Saved' : saving ? 'Saving…' : 'Save to History'}
-        </button>
-        <button
-          onClick={handleCopy}
-          className="rounded-lg border border-hair text-ink hover:bg-black/[0.03] text-sm font-medium px-4 py-2 transition-colors"
-        >
-          {copied ? 'Copied!' : 'Copy'}
-        </button>
-      </div>
+      {!chatActive && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            onClick={handleDownload}
+            className="rounded-lg bg-navy hover:bg-navy-dark text-white text-sm font-medium px-4 py-2 transition-colors"
+          >
+            Download PDF
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || saved}
+            className="rounded-lg border border-navy text-navy hover:bg-navy-pale text-sm font-medium px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saved ? 'Saved' : saving ? 'Saving…' : 'Save to History'}
+          </button>
+          <button
+            onClick={handleCopy}
+            className="rounded-lg border border-hair text-ink hover:bg-black/[0.03] text-sm font-medium px-4 py-2 transition-colors"
+          >
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+      )}
 
       {/* Active tab panel */}
       {activeTab === 'overview' && summary && (
@@ -497,11 +504,15 @@ export default function ResultView({
 
       {/* Ask a Question: kept mounted (hidden, not unmounted) so the
           conversation survives switching to other tabs. */}
-      <div className={activeTab === 'chat' ? '' : 'hidden'}>
-        <DocChat documentText={documentText} documentPages={documentPages} />
+      <div className={chatActive ? 'min-h-0 flex-1' : 'hidden'}>
+        <DocChat
+          documentText={documentText}
+          documentPages={documentPages}
+          userInitial={(session.user.email?.[0] || '?').toUpperCase()}
+        />
       </div>
 
-      {error && (
+      {!chatActive && error && (
         <p className="rounded-xl border border-risk-high/25 bg-risk-high/[0.08] px-4 py-3 text-sm text-risk-high-ink">
           {error}
         </p>

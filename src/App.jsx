@@ -165,8 +165,12 @@ export default function App() {
   const activeTab =
     view === 'doc' ? (tabs.some((t) => t.id === nav.tab) ? nav.tab : tabs[0]?.id) : null
 
+  // The chat tab fills the viewport height (composer pinned at the bottom,
+  // conversation scrolling internally) instead of scrolling the page.
+  const chatActive = view === 'doc' && activeTab === 'chat'
+
   const home = (
-    <main className="min-h-full px-6 py-8 sm:px-10">
+    <main className={chatActive ? 'h-full px-6 sm:px-10' : 'min-h-full px-6 py-8 sm:px-10'}>
       {view === 'new' && (
         <div className="mx-auto w-full max-w-3xl space-y-6">
           <Uploader doc={doc} onExtracted={setDoc} disabled={processing} />
@@ -234,7 +238,7 @@ export default function App() {
       )}
 
       {view === 'doc' && result && (
-        <div className="mx-auto w-full max-w-4xl">
+        <div className={`mx-auto w-full max-w-4xl ${chatActive ? 'h-full' : ''}`}>
           <ResultView
             // Remount per result so internal state (e.g. `saved`, the chat
             // conversation) resets when a different document opens.
@@ -267,7 +271,7 @@ export default function App() {
           }}
         />
 
-        <div className="min-w-0 flex-1 overflow-y-auto">
+        <div className={`min-w-0 flex-1 ${chatActive ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           <Routes>
             <Route path="/" element={home} />
             <Route
