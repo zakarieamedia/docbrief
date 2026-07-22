@@ -24,8 +24,7 @@ const RISK = {
   },
 }
 
-// A quiet section heading — serif label over a hairline rule. Used for the
-// secondary/reference sections so they don't compete with the risk hero.
+// A quiet section heading — serif label over a hairline rule.
 function SectionHead({ children, tone = 'navy' }) {
   return (
     <h2
@@ -73,22 +72,18 @@ function CleanTable({ columns, rows }) {
   )
 }
 
-export default function SummaryView({ summary, fileName }) {
-  const risks = [...(summary.risksAndFlags ?? [])].sort(
-    (a, b) =>
-      (RISK[String(a.severity).toLowerCase()] ?? RISK.low).order -
-      (RISK[String(b.severity).toLowerCase()] ?? RISK.low).order,
-  )
-  const obligations = summary.keyObligations ?? []
-  const dates = summary.importantDates ?? []
+// ——— Tab panels ————————————————————————————————————————————————————————
+// Each panel below is one sidebar tab's content, rendered on the paper sheet
+// by ResultView. They were the sections of the single-scroll memo.
 
+// Overview tab: letterhead masthead + the memo's opening lead.
+export function OverviewPanel({ summary, fileName }) {
   const metaLine = [summary.documentType, summary.preparedDate, fileName && `Source: ${fileName}`]
     .filter(Boolean)
     .join('   ·   ')
 
   return (
     <div>
-      {/* Letterhead masthead */}
       <header className="border-b-2 border-navy pb-4">
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-faint">
           Document Brief
@@ -99,54 +94,70 @@ export default function SummaryView({ summary, fileName }) {
         {metaLine && <p className="mt-2 text-sm text-faint">{metaLine}</p>}
       </header>
 
-      {/* Overview — the lead paragraph. No box, bigger serif type, reads like
-          the opening of a memo. */}
+      {/* The lead paragraph. No box, bigger serif type, reads like the
+          opening of a memo. */}
       <Markdown className="mt-6 font-serif text-lg leading-relaxed text-ink sm:text-xl [&_p]:mb-3 [&_:last-child]:mb-0 [&_strong]:font-semibold">
         {summary.overview || 'No overview was generated for this document.'}
       </Markdown>
+    </div>
+  )
+}
 
-      {/* Risks & Flags — the hero. Strongest visual weight on the page. */}
-      <section className="mt-9">
-        <div className="flex items-baseline justify-between border-b-2 border-risk-high/70 pb-1.5">
-          <h2 className="font-serif text-xl font-bold text-risk-high-ink">Risks &amp; Flags</h2>
-          <span className="text-xs font-semibold uppercase tracking-wide text-faint">
-            {risks.length} flagged
-          </span>
-        </div>
+// Risks & Flags tab: the hero. Strongest visual weight in the app.
+export function RisksPanel({ summary }) {
+  const risks = [...(summary.risksAndFlags ?? [])].sort(
+    (a, b) =>
+      (RISK[String(a.severity).toLowerCase()] ?? RISK.low).order -
+      (RISK[String(b.severity).toLowerCase()] ?? RISK.low).order,
+  )
 
-        {risks.length ? (
-          <div className="mt-4 space-y-3">
-            {risks.map((risk, i) => {
-              const sev = String(risk.severity || 'low').toLowerCase()
-              const style = RISK[sev] ?? RISK.low
-              return (
-                <div
-                  key={i}
-                  className={`rounded-md border border-hair border-l-4 ${style.rail} ${style.panel} px-4 py-3`}
-                >
-                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${style.badge}`}
-                    >
-                      {sev}
-                    </span>
-                    {risk.source && <PagePointer citation={risk.source} />}
-                  </div>
-                  <p className="text-[15px] leading-relaxed text-ink">{risk.description || '—'}</p>
+  return (
+    <section>
+      <div className="flex items-baseline justify-between border-b-2 border-risk-high/70 pb-1.5">
+        <h2 className="font-serif text-xl font-bold text-risk-high-ink">Risks &amp; Flags</h2>
+        <span className="text-xs font-semibold uppercase tracking-wide text-faint">
+          {risks.length} flagged
+        </span>
+      </div>
+
+      {risks.length ? (
+        <div className="mt-4 space-y-3">
+          {risks.map((risk, i) => {
+            const sev = String(risk.severity || 'low').toLowerCase()
+            const style = RISK[sev] ?? RISK.low
+            return (
+              <div
+                key={i}
+                className={`rounded-md border border-hair border-l-4 ${style.rail} ${style.panel} px-4 py-3`}
+              >
+                <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${style.badge}`}
+                  >
+                    {sev}
+                  </span>
+                  {risk.source && <PagePointer citation={risk.source} />}
                 </div>
-              )
-            })}
-          </div>
-        ) : (
-          <p className="mt-4 rounded-md border border-hair bg-surface px-4 py-3 text-sm italic text-faint">
-            None identified.
-          </p>
-        )}
-      </section>
+                <p className="text-[15px] leading-relaxed text-ink">{risk.description || '—'}</p>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="mt-4 rounded-md border border-hair bg-surface px-4 py-3 text-sm italic text-faint">
+          None identified.
+        </p>
+      )}
+    </section>
+  )
+}
 
-      {/* Key Parties + Financial Terms — clean tables, deliberately not
-          over-designed. */}
-      <section className="mt-9">
+// Parties & Financials tab: the two clean tables, deliberately not
+// over-designed.
+export function PartiesFinancialsPanel({ summary }) {
+  return (
+    <div>
+      <section>
         <SectionHead>Key Parties</SectionHead>
         <div className="mt-3">
           <CleanTable
@@ -172,54 +183,61 @@ export default function SummaryView({ summary, fileName }) {
           />
         </div>
       </section>
+    </div>
+  )
+}
 
-      {/* Obligations + Important Dates — quieter/secondary reference.
-          Each column gets min-w-0 so a long, non-wrapping deadline can't blow
-          out its grid track and bleed across the gap into the other column
-          (grid/flex items default to min-width:auto). The party/deadline row
-          wraps, and the deadline itself wraps + breaks long tokens. */}
-      <div className="mt-9 grid gap-8 md:grid-cols-2">
-        <section className="min-w-0">
-          <SectionHead tone="faint">Obligations</SectionHead>
-          {obligations.length ? (
-            <ul className="mt-2 divide-y divide-hair">
-              {obligations.map((o, i) => (
-                <li key={i} className="py-2.5 text-sm">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                    <span className="min-w-0 break-words font-semibold text-ink">{o.party || '—'}</span>
-                    {o.deadline && (
-                      <span className="min-w-0 break-words text-xs text-faint">due {o.deadline}</span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 break-words leading-relaxed text-ink/80">{o.obligation || '—'}</p>
-                  {o.source && <PagePointer citation={o.source} className="mt-1.5" />}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-sm italic text-faint">None identified.</p>
-          )}
-        </section>
+// Obligations & Dates tab: the two-column reference section.
+// Each column gets min-w-0 so a long, non-wrapping deadline can't blow out
+// its grid track and bleed across the gap into the other column (grid/flex
+// items default to min-width:auto). The party/deadline row wraps, and the
+// deadline itself wraps + breaks long tokens.
+export function ObligationsDatesPanel({ summary }) {
+  const obligations = summary.keyObligations ?? []
+  const dates = summary.importantDates ?? []
 
-        <section className="min-w-0">
-          <SectionHead tone="faint">Important Dates</SectionHead>
-          {dates.length ? (
-            <ul className="mt-2 divide-y divide-hair">
-              {dates.map((d, i) => (
-                <li key={i} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2.5 text-sm">
-                  <span className="min-w-0 break-words">
-                    <span className="text-ink">{d.event || '—'}</span>
-                    {d.source && <PagePointer citation={d.source} className="ml-2 align-middle" />}
-                  </span>
-                  <span className="whitespace-nowrap font-semibold text-navy">{d.date || '—'}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-sm italic text-faint">None identified.</p>
-          )}
-        </section>
-      </div>
+  return (
+    <div className="grid gap-8 md:grid-cols-2">
+      <section className="min-w-0">
+        <SectionHead tone="faint">Obligations</SectionHead>
+        {obligations.length ? (
+          <ul className="mt-2 divide-y divide-hair">
+            {obligations.map((o, i) => (
+              <li key={i} className="py-2.5 text-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <span className="min-w-0 break-words font-semibold text-ink">{o.party || '—'}</span>
+                  {o.deadline && (
+                    <span className="min-w-0 break-words text-xs text-faint">due {o.deadline}</span>
+                  )}
+                </div>
+                <p className="mt-0.5 break-words leading-relaxed text-ink/80">{o.obligation || '—'}</p>
+                {o.source && <PagePointer citation={o.source} className="mt-1.5" />}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm italic text-faint">None identified.</p>
+        )}
+      </section>
+
+      <section className="min-w-0">
+        <SectionHead tone="faint">Important Dates</SectionHead>
+        {dates.length ? (
+          <ul className="mt-2 divide-y divide-hair">
+            {dates.map((d, i) => (
+              <li key={i} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2.5 text-sm">
+                <span className="min-w-0 break-words">
+                  <span className="text-ink">{d.event || '—'}</span>
+                  {d.source && <PagePointer citation={d.source} className="ml-2 align-middle" />}
+                </span>
+                <span className="whitespace-nowrap font-semibold text-navy">{d.date || '—'}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm italic text-faint">None identified.</p>
+        )}
+      </section>
     </div>
   )
 }

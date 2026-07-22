@@ -22,3 +22,6 @@ npm-debug.log*
 !.vscode/extensions.json
 .idea
 .DS_Store
+
+# Local screenshot harness (dev tool, not product code)
+.screenshot-harness

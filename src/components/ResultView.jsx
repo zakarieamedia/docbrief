@@ -2,7 +2,13 @@ import { useState } from 'react'
 import { jsPDF } from 'jspdf'
 import { supabase } from '../lib/supabase'
 import Markdown from './Markdown'
-import SummaryView from './SummaryView'
+import DocChat from './DocChat'
+import {
+  OverviewPanel,
+  RisksPanel,
+  PartiesFinancialsPanel,
+  ObligationsDatesPanel,
+} from './SummaryView'
 
 const NAVY = [31, 56, 100] // #1F3864
 
@@ -15,7 +21,8 @@ const RISK_PDF_COLORS = {
 // Fresh results carry a structured summary object; rows reopened from history
 // carry summary_text — JSON for new saves, markdown/plain text for old ones.
 // Returns the structured object, or null for legacy text summaries.
-function toStructuredSummary(value) {
+// Exported so App can decide which sidebar tabs a document gets.
+export function toStructuredSummary(value) {
   let raw = value
   if (typeof raw === 'string') {
     if (!raw.trim().startsWith('{')) return null
@@ -325,7 +332,26 @@ function Stat({ label, value }) {
   )
 }
 
-export default function ResultView({ result, session, onSaved }) {
+// The warm paper sheet every tab panel renders on.
+function Sheet({ children }) {
+  return (
+    <article className="bg-surface rounded-xl border border-hair shadow-sm px-6 py-7 sm:px-9 sm:py-8">
+      {children}
+    </article>
+  )
+}
+
+// The open document's main-area view: a per-document action bar plus the
+// panel for the sidebar tab that's active. One panel at a time — the old
+// single-scroll memo's sections each became a tab.
+export default function ResultView({
+  result,
+  session,
+  onSaved,
+  activeTab,
+  documentText,
+  documentPages,
+}) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(Boolean(result.saved))
   const [copied, setCopied] = useState(false)
@@ -404,12 +430,55 @@ export default function ResultView({ result, session, onSaved }) {
         </button>
       </div>
 
-      {/* The briefing memo, on a warm paper sheet */}
-      <article className="bg-surface rounded-xl border border-hair shadow-sm px-6 py-7 sm:px-9 sm:py-8">
-        {summary ? (
-          <SummaryView summary={summary} fileName={result.fileName} />
-        ) : (
-          /* Legacy markdown/plain-text summaries saved before the structured format */
+      {/* Active tab panel */}
+      {activeTab === 'overview' && summary && (
+        <>
+          <Sheet>
+            <OverviewPanel summary={summary} fileName={result.fileName} />
+          </Sheet>
+
+          {/* Quiet process metadata — reference, not headline */}
+          <div className="flex flex-wrap gap-x-5 gap-y-1 px-1 text-xs">
+            <Stat
+              label="Words"
+              value={result.wordCount != null ? result.wordCount.toLocaleString() : '—'}
+            />
+            <Stat
+              label="Sections analyzed"
+              value={result.chunksProcessed != null ? result.chunksProcessed : '—'}
+            />
+            <Stat label="Depth" value={result.depth || '—'} />
+            <Stat label="Format" value={result.format || '—'} />
+            <Stat
+              label="Cost"
+              value={result.actualCost != null ? `$${Number(result.actualCost).toFixed(3)}` : '—'}
+            />
+          </div>
+        </>
+      )}
+
+      {activeTab === 'risks' && summary && (
+        <Sheet>
+          <RisksPanel summary={summary} />
+        </Sheet>
+      )}
+
+      {activeTab === 'parties' && summary && (
+        <Sheet>
+          <PartiesFinancialsPanel summary={summary} />
+        </Sheet>
+      )}
+
+      {activeTab === 'obligations' && summary && (
+        <Sheet>
+          <ObligationsDatesPanel summary={summary} />
+        </Sheet>
+      )}
+
+      {/* Full Summary: legacy markdown/plain-text summaries saved before the
+          structured format live here (their whole content is prose). */}
+      {activeTab === 'summary' && !summary && (
+        <Sheet>
           <Markdown
             className="text-[15px] text-ink leading-relaxed
               [&_h1]:font-serif [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-navy [&_h1]:mt-5 [&_h1]:mb-2
@@ -423,25 +492,13 @@ export default function ResultView({ result, session, onSaved }) {
           >
             {plainText}
           </Markdown>
-        )}
-      </article>
+        </Sheet>
+      )}
 
-      {/* Quiet process metadata — reference, not headline */}
-      <div className="flex flex-wrap gap-x-5 gap-y-1 px-1 text-xs">
-        <Stat
-          label="Words"
-          value={result.wordCount != null ? result.wordCount.toLocaleString() : '—'}
-        />
-        <Stat
-          label="Sections analyzed"
-          value={result.chunksProcessed != null ? result.chunksProcessed : '—'}
-        />
-        <Stat label="Depth" value={result.depth || '—'} />
-        <Stat label="Format" value={result.format || '—'} />
-        <Stat
-          label="Cost"
-          value={result.actualCost != null ? `$${Number(result.actualCost).toFixed(3)}` : '—'}
-        />
+      {/* Ask a Question: kept mounted (hidden, not unmounted) so the
+          conversation survives switching to other tabs. */}
+      <div className={activeTab === 'chat' ? '' : 'hidden'}>
+        <DocChat documentText={documentText} documentPages={documentPages} />
       </div>
 
       {error && (
