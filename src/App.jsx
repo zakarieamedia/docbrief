@@ -166,25 +166,25 @@ export default function App() {
         />
 
         {processing && progress && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <div className="bg-surface rounded-xl border border-hair shadow-sm p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">{progress.stage}</span>
-              <span className="text-sm text-gray-500">{progress.percent}%</span>
+              <span className="text-sm font-medium text-ink">{progress.stage}</span>
+              <span className="text-sm text-faint">{progress.percent}%</span>
             </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-2 bg-navy/10 rounded-full overflow-hidden">
               <div
                 className="h-full bg-navy rounded-full transition-all duration-500"
                 style={{ width: `${progress.percent}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="mt-2 text-xs text-faint">
               Chunk {progress.current} of {progress.total}
             </p>
           </div>
         )}
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+          <div className="bg-risk-high/[0.08] border border-risk-high/25 text-risk-high-ink text-sm rounded-xl px-4 py-3">
             {error}
           </div>
         )}
@@ -217,9 +217,9 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-md bg-white/10 flex items-center justify-center">
-                <span className="font-bold">D</span>
+                <span className="font-serif font-bold">D</span>
               </div>
-              <span className="text-xl font-bold tracking-tight">DocBrief</span>
+              <span className="font-serif text-xl font-bold tracking-tight">DocBrief</span>
             </Link>
             <div className="flex items-center gap-4">
               {isAdmin && (

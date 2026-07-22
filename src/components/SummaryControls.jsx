@@ -9,21 +9,21 @@ export default function SummaryControls({ fileLoaded, processing, onAnalyze }) {
   const [focus, setFocus] = useState('')
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+    <div className="bg-surface rounded-xl border border-hair shadow-sm p-5">
+      <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-faint mb-3">
         Summary Options
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="depth" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="depth" className="block text-sm font-medium text-ink mb-1">
             Summary Depth
           </label>
           <select
             id="depth"
             value={depth}
             onChange={(e) => setDepth(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-navy"
+            className="w-full rounded-lg border border-hair bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy"
           >
             {DEPTHS.map((d) => (
               <option key={d} value={d}>
@@ -34,14 +34,14 @@ export default function SummaryControls({ fileLoaded, processing, onAnalyze }) {
         </div>
 
         <div>
-          <label htmlFor="format" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="format" className="block text-sm font-medium text-ink mb-1">
             Output Format
           </label>
           <select
             id="format"
             value={format}
             onChange={(e) => setFormat(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-navy"
+            className="w-full rounded-lg border border-hair bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy"
           >
             {FORMATS.map((f) => (
               <option key={f} value={f}>
@@ -52,8 +52,8 @@ export default function SummaryControls({ fileLoaded, processing, onAnalyze }) {
         </div>
 
         <div className="sm:col-span-2">
-          <label htmlFor="focus" className="block text-sm font-medium text-gray-700 mb-1">
-            Focus Areas <span className="text-gray-400 font-normal">(optional)</span>
+          <label htmlFor="focus" className="block text-sm font-medium text-ink mb-1">
+            Focus Areas <span className="text-faint font-normal">(optional)</span>
           </label>
           <input
             id="focus"
@@ -61,7 +61,7 @@ export default function SummaryControls({ fileLoaded, processing, onAnalyze }) {
             value={focus}
             onChange={(e) => setFocus(e.target.value)}
             placeholder="e.g. payment terms, termination clauses, liabilities"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+            className="w-full rounded-lg border border-hair bg-white px-3 py-2 text-sm text-ink placeholder-faint focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy"
           />
         </div>
       </div>
@@ -74,7 +74,7 @@ export default function SummaryControls({ fileLoaded, processing, onAnalyze }) {
         {processing ? 'Analyzing…' : 'Analyze Document'}
       </button>
       {!fileLoaded && (
-        <p className="mt-2 text-xs text-gray-400">Upload a document to enable analysis.</p>
+        <p className="mt-2 text-xs text-faint">Upload a document to enable analysis.</p>
       )}
     </div>
   )

@@ -16,8 +16,8 @@ function displayUser(row) {
 
 function StatCard({ label, value }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
+    <div className="bg-surface rounded-xl border border-hair shadow-sm px-4 py-3">
+      <p className="text-[11px] font-semibold text-faint uppercase tracking-[0.15em]">{label}</p>
       <p className="mt-1 text-lg font-semibold text-navy truncate">{value}</p>
     </div>
   )
@@ -25,30 +25,32 @@ function StatCard({ label, value }) {
 
 function TableCard({ title, columns, children, empty }) {
   return (
-    <section className="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
-      <div className="bg-navy px-4 py-2.5">
-        <h2 className="text-white text-xs font-semibold uppercase tracking-widest">{title}</h2>
-      </div>
+    <section>
+      <h2 className="font-serif text-lg font-bold text-navy border-b border-hair pb-1.5 mb-3">
+        {title}
+      </h2>
       {children ? (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-md border border-hair bg-surface shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bg-navy/[0.04] border-b border-hair">
                 {columns.map((col) => (
                   <th
                     key={col}
-                    className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap"
+                    className="text-left px-4 py-2 text-[11px] font-semibold text-faint uppercase tracking-wide whitespace-nowrap"
                   >
                     {col}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">{children}</tbody>
+            <tbody className="divide-y divide-hair">{children}</tbody>
           </table>
         </div>
       ) : (
-        <p className="px-4 py-3 text-sm text-gray-500 italic">{empty}</p>
+        <p className="px-4 py-3 text-sm text-faint italic rounded-md border border-hair bg-surface">
+          {empty}
+        </p>
       )}
     </section>
   )
@@ -145,10 +147,10 @@ export default function Admin() {
 
   return (
     <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-      <h1 className="text-xl font-bold text-navy">Admin Dashboard</h1>
+      <h1 className="font-serif text-2xl font-bold text-navy">Admin Dashboard</h1>
 
       {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+        <p className="text-sm text-risk-high-ink bg-risk-high/[0.08] border border-risk-high/25 rounded-xl px-4 py-3">
           {error}
         </p>
       )}
@@ -168,9 +170,9 @@ export default function Admin() {
         {stats.users.length
           ? stats.users.map((user) => (
               <tr key={user.id}>
-                <td className="px-4 py-2.5 text-gray-800">{user.email}</td>
-                <td className="px-4 py-2.5 text-gray-800">{user.count}</td>
-                <td className="px-4 py-2.5 text-gray-800 whitespace-nowrap">
+                <td className="px-4 py-2.5 text-ink">{user.email}</td>
+                <td className="px-4 py-2.5 text-ink">{user.count}</td>
+                <td className="px-4 py-2.5 text-ink whitespace-nowrap">
                   {user.lastActive.toLocaleDateString()}
                 </td>
               </tr>
@@ -186,20 +188,20 @@ export default function Admin() {
         {rows.length
           ? rows.slice(0, 25).map((row) => (
               <tr key={row.id}>
-                <td className="px-4 py-2.5 text-gray-800">{displayUser(row)}</td>
-                <td className="px-4 py-2.5 text-gray-800 max-w-[16rem] truncate">{row.file_name}</td>
-                <td className="px-4 py-2.5 text-gray-800">
+                <td className="px-4 py-2.5 text-ink">{displayUser(row)}</td>
+                <td className="px-4 py-2.5 text-ink max-w-[16rem] truncate">{row.file_name}</td>
+                <td className="px-4 py-2.5 text-ink">
                   {row.word_count != null ? row.word_count.toLocaleString() : '—'}
                 </td>
-                <td className="px-4 py-2.5 text-gray-800">{row.chunks_processed ?? '—'}</td>
-                <td className="px-4 py-2.5 text-gray-800 whitespace-nowrap">
+                <td className="px-4 py-2.5 text-ink">{row.chunks_processed ?? '—'}</td>
+                <td className="px-4 py-2.5 text-ink whitespace-nowrap">
                   {new Date(row.created_at).toLocaleDateString()}
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <button
                     onClick={() => handleDelete(row)}
                     disabled={deletingId === row.id}
-                    className="text-xs font-medium text-red-600 hover:text-red-700 hover:underline disabled:opacity-50"
+                    className="text-xs font-medium text-risk-high hover:text-risk-high-ink hover:underline disabled:opacity-50"
                   >
                     {deletingId === row.id ? 'Deleting…' : 'Delete'}
                   </button>

@@ -100,8 +100,8 @@ export default function Uploader({ doc, onExtracted, disabled }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+    <div className="bg-surface rounded-xl border border-hair shadow-sm p-5">
+      <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-faint mb-3">
         Document
       </h2>
 
@@ -120,7 +120,7 @@ export default function Uploader({ doc, onExtracted, disabled }) {
           if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click()
         }}
         className={`rounded-lg border-2 border-dashed px-6 py-10 text-center cursor-pointer transition-colors
-          ${dragging ? 'border-navy bg-navy-pale' : 'border-gray-300 hover:border-navy hover:bg-gray-50'}
+          ${dragging ? 'border-navy bg-navy-pale' : 'border-hair hover:border-navy hover:bg-navy/[0.03]'}
           ${disabled || extracting ? 'opacity-60 cursor-not-allowed' : ''}`}
       >
         <input
@@ -137,12 +137,12 @@ export default function Uploader({ doc, onExtracted, disabled }) {
         {extracting ? (
           <div className="flex flex-col items-center gap-3">
             <div className="h-8 w-8 border-2 border-navy border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-gray-600">Extracting text…</p>
+            <p className="text-sm text-faint">Extracting text…</p>
           </div>
         ) : (
           <>
             <svg
-              className="mx-auto h-10 w-10 text-gray-400"
+              className="mx-auto h-10 w-10 text-faint/60"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -154,16 +154,16 @@ export default function Uploader({ doc, onExtracted, disabled }) {
                 d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
               />
             </svg>
-            <p className="mt-3 text-sm font-medium text-gray-700">
+            <p className="mt-3 text-sm font-medium text-ink">
               Drag &amp; drop a document here, or click to browse
             </p>
-            <p className="mt-1 text-xs text-gray-500">PDF, DOCX, TXT, CSV, MD</p>
+            <p className="mt-1 text-xs text-faint">PDF, DOCX, TXT, CSV, MD</p>
           </>
         )}
       </div>
 
       {error && (
-        <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+        <p className="mt-3 text-sm text-risk-high-ink bg-risk-high/[0.08] border border-risk-high/25 rounded-lg px-3 py-2">
           {error}
         </p>
       )}
@@ -174,8 +174,8 @@ export default function Uploader({ doc, onExtracted, disabled }) {
             <span className="text-white text-xs font-bold">{doc.type}</span>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-800 truncate">{doc.name}</p>
-            <p className="text-xs text-gray-500">
+            <p className="text-sm font-medium text-ink truncate">{doc.name}</p>
+            <p className="text-xs text-faint">
               {formatSize(doc.size)} · {doc.wordCount.toLocaleString()} words
             </p>
           </div>

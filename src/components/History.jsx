@@ -67,14 +67,14 @@ export default function History({ session, version, onSelect, onDelete }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-      <div className="px-5 py-4 border-b border-gray-100">
-        <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+    <div className="bg-surface rounded-xl border border-hair shadow-sm">
+      <div className="px-5 py-4 border-b border-hair">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-faint">
           History
         </h2>
       </div>
 
-      <div className="divide-y divide-gray-100 max-h-[70vh] overflow-y-auto">
+      <div className="divide-y divide-hair max-h-[70vh] overflow-y-auto">
         {loading && (
           <div className="flex justify-center py-8">
             <div className="h-6 w-6 border-2 border-navy border-t-transparent rounded-full animate-spin" />
@@ -82,11 +82,11 @@ export default function History({ session, version, onSelect, onDelete }) {
         )}
 
         {!loading && error && (
-          <p className="px-5 py-4 text-sm text-red-600">{error}</p>
+          <p className="px-5 py-4 text-sm text-risk-high-ink">{error}</p>
         )}
 
         {!loading && !error && items.length === 0 && (
-          <p className="px-5 py-8 text-sm text-gray-400 text-center">
+          <p className="px-5 py-8 text-sm text-faint text-center">
             No saved summaries yet.
           </p>
         )}
@@ -106,13 +106,13 @@ export default function History({ session, version, onSelect, onDelete }) {
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-800 truncate">
+                <p className="text-sm font-medium text-ink truncate">
                   {item.file_name}
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-faint mt-0.5">
                   {new Date(item.created_at).toLocaleDateString()} · {item.depth}
                 </p>
-                <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                <p className="text-xs text-faint mt-1 line-clamp-2">
                   {preview.slice(0, 80)}
                   {preview.length > 80 ? '…' : ''}
                 </p>
@@ -120,7 +120,7 @@ export default function History({ session, version, onSelect, onDelete }) {
               <button
                 onClick={(e) => handleDelete(e, item)}
                 title="Delete"
-                className="shrink-0 text-gray-300 hover:text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1"
+                className="shrink-0 text-faint/50 hover:text-risk-high opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1"
               >
                 <svg
                   className="h-4 w-4"

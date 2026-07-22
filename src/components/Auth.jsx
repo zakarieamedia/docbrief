@@ -53,27 +53,27 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200 p-8">
+    <div className="min-h-screen flex items-center justify-center bg-paper px-4">
+      <div className="w-full max-w-md bg-surface rounded-xl shadow-lg border border-hair p-8">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2">
             <div className="h-10 w-10 rounded-lg bg-navy flex items-center justify-center">
-              <span className="text-white font-bold text-lg">D</span>
+              <span className="text-white font-serif font-bold text-lg">D</span>
             </div>
-            <h1 className="text-2xl font-bold text-navy tracking-tight">DocBrief</h1>
+            <h1 className="font-serif text-2xl font-bold text-navy tracking-tight">DocBrief</h1>
           </div>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-faint">
             Professional document summarization
           </p>
         </div>
 
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">
+        <h2 className="font-serif text-lg font-bold text-ink mb-4">
           {mode === 'login' ? 'Log in to your account' : 'Create an account'}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-ink mb-1">
               Email
             </label>
             <input
@@ -82,12 +82,12 @@ export default function Auth() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:border-navy"
+              className="w-full rounded-lg border border-hair bg-white px-3 py-2 text-sm text-ink placeholder-faint focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy"
               placeholder="you@firm.com"
             />
           </div>
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-ink mb-1">
               Password
             </label>
             <input
@@ -97,18 +97,18 @@ export default function Auth() {
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:border-navy"
+              className="w-full rounded-lg border border-hair bg-white px-3 py-2 text-sm text-ink placeholder-faint focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy"
               placeholder="••••••••"
             />
           </div>
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <p className="text-sm text-risk-high-ink bg-risk-high/[0.08] border border-risk-high/25 rounded-lg px-3 py-2">
               {error}
             </p>
           )}
           {notice && (
-            <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+            <p className="text-sm text-navy bg-navy-pale border border-navy/20 rounded-lg px-3 py-2">
               {notice}
             </p>
           )}
@@ -135,7 +135,7 @@ export default function Auth() {
           </p>
         )}
 
-        <p className="mt-6 text-center text-sm text-gray-500">
+        <p className="mt-6 text-center text-sm text-faint">
           {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
           <button
             type="button"
