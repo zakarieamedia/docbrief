@@ -2,14 +2,9 @@ import { useState } from 'react'
 import { jsPDF } from 'jspdf'
 import { supabase } from '../lib/supabase'
 import Markdown from './Markdown'
+import SummaryView from './SummaryView'
 
 const NAVY = [31, 56, 100] // #1F3864
-
-const RISK_BADGE_STYLES = {
-  high: 'bg-red-100 text-red-700 border-red-200',
-  medium: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  low: 'bg-gray-100 text-gray-600 border-gray-300',
-}
 
 const RISK_PDF_COLORS = {
   high: [220, 38, 38],
@@ -319,139 +314,14 @@ function downloadTextPdf(result) {
   doc.save(`${baseName}-summary.pdf`)
 }
 
-function MetricCard({ label, value }) {
+// One quiet metric in the muted stats strip below the memo — process metadata
+// (word count, cost, etc.) that Frank doesn't need up front.
+function Stat({ label, value }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-navy truncate">{value}</p>
-    </div>
-  )
-}
-
-function SectionCard({ title, children }) {
-  return (
-    <section className="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
-      <div className="bg-navy px-4 py-2.5">
-        <h3 className="text-white text-xs font-semibold uppercase tracking-widest">{title}</h3>
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function DataTable({ columns, rows }) {
-  if (!rows?.length) {
-    return <p className="px-4 py-3 text-sm text-gray-500 italic">None identified.</p>
-  }
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-      <thead>
-        <tr className="bg-gray-50 border-b border-gray-200">
-          {columns.map((col) => (
-            <th
-              key={col.key}
-              className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide"
-            >
-              {col.label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-gray-100">
-        {rows.map((row, i) => (
-          <tr key={i}>
-            {columns.map((col) => (
-              <td key={col.key} className="px-4 py-2.5 text-gray-800 align-top">
-                {row[col.key] || '—'}
-              </td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-      </table>
-    </div>
-  )
-}
-
-function StructuredSummary({ summary }) {
-  const risks = summary.risksAndFlags ?? []
-  return (
-    <div className="space-y-4">
-      <SectionCard title="Document Overview">
-        <Markdown className="px-4 py-3 text-sm text-gray-800 leading-relaxed [&_p]:mb-2 [&_:last-child]:mb-0 [&_strong]:font-semibold">
-          {summary.overview || 'Not specified.'}
-        </Markdown>
-      </SectionCard>
-
-      <SectionCard title="Key Parties">
-        <DataTable
-          columns={[
-            { key: 'name', label: 'Name' },
-            { key: 'role', label: 'Role' },
-          ]}
-          rows={summary.parties}
-        />
-      </SectionCard>
-
-      <SectionCard title="Financial Terms">
-        <DataTable
-          columns={[
-            { key: 'item', label: 'Item' },
-            { key: 'amount', label: 'Amount' },
-            { key: 'notes', label: 'Notes' },
-          ]}
-          rows={summary.financialTerms}
-        />
-      </SectionCard>
-
-      <SectionCard title="Key Obligations">
-        <DataTable
-          columns={[
-            { key: 'party', label: 'Party' },
-            { key: 'obligation', label: 'Obligation' },
-            { key: 'deadline', label: 'Deadline' },
-          ]}
-          rows={summary.keyObligations}
-        />
-      </SectionCard>
-
-      <SectionCard title="Important Dates">
-        <DataTable
-          columns={[
-            { key: 'date', label: 'Date' },
-            { key: 'event', label: 'Event' },
-          ]}
-          rows={summary.importantDates}
-        />
-      </SectionCard>
-
-      <SectionCard title="Risks & Flags">
-        {risks.length ? (
-          <ul className="divide-y divide-gray-100">
-            {risks.map((risk, i) => {
-              const severity = String(risk.severity || 'low').toLowerCase()
-              return (
-                <li key={i} className="flex items-start gap-3 px-4 py-3">
-                  <span
-                    className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${
-                      RISK_BADGE_STYLES[severity] || RISK_BADGE_STYLES.low
-                    }`}
-                  >
-                    {severity}
-                  </span>
-                  <span className="text-sm text-gray-800 leading-relaxed">
-                    {risk.description}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        ) : (
-          <p className="px-4 py-3 text-sm text-gray-500 italic">None identified.</p>
-        )}
-      </SectionCard>
-    </div>
+    <span className="whitespace-nowrap">
+      <span className="text-faint">{label}:</span>{' '}
+      <span className="font-medium text-ink">{value}</span>
+    </span>
   )
 }
 
@@ -511,84 +381,71 @@ export default function ResultView({ result, session, onSaved }) {
 
   return (
     <div className="space-y-4">
-      {/* Metric cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <MetricCard
-          label="Word Count"
-          value={result.wordCount != null ? result.wordCount.toLocaleString() : '—'}
-        />
-        <MetricCard
-          label="Chunks Processed"
-          value={result.chunksProcessed != null ? result.chunksProcessed : '—'}
-        />
-        <MetricCard label="Depth" value={result.depth} />
-        <MetricCard label="Format" value={result.format} />
-        <MetricCard
-          label="Actual Cost"
-          value={result.actualCost != null ? `$${Number(result.actualCost).toFixed(3)}` : '—'}
-        />
+      {/* Action bar */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button
+          onClick={handleDownload}
+          className="rounded-lg bg-navy hover:bg-navy-dark text-white text-sm font-medium px-4 py-2 transition-colors"
+        >
+          Download PDF
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving || saved}
+          className="rounded-lg border border-navy text-navy hover:bg-navy-pale text-sm font-medium px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saved ? 'Saved' : saving ? 'Saving…' : 'Save to History'}
+        </button>
+        <button
+          onClick={handleCopy}
+          className="rounded-lg border border-hair text-ink hover:bg-black/[0.03] text-sm font-medium px-4 py-2 transition-colors"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
       </div>
 
-      {/* Document header + actions */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4">
-          <div className="min-w-0">
-            <h2 className="text-lg font-bold text-navy">
-              {summary?.documentTitle || result.fileName}
-            </h2>
-            <p className="mt-1 text-xs text-gray-500">
-              {[summary?.documentType, summary?.preparedDate, `Source: ${result.fileName}`]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={handleDownload}
-              className="rounded-lg bg-navy hover:bg-navy-dark text-white text-sm font-medium px-4 py-2 transition-colors"
-            >
-              Download PDF
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving || saved}
-              className="rounded-lg border border-navy text-navy hover:bg-navy-pale text-sm font-medium px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saved ? 'Saved' : saving ? 'Saving…' : 'Save to History'}
-            </button>
-            <button
-              onClick={handleCopy}
-              className="rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium px-4 py-2 transition-colors"
-            >
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {summary ? (
-        <StructuredSummary summary={summary} />
-      ) : (
-        /* Legacy markdown/plain-text summaries saved before the structured format */
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+      {/* The briefing memo, on a warm paper sheet */}
+      <article className="bg-surface rounded-xl border border-hair shadow-sm px-6 py-7 sm:px-9 sm:py-8">
+        {summary ? (
+          <SummaryView summary={summary} fileName={result.fileName} />
+        ) : (
+          /* Legacy markdown/plain-text summaries saved before the structured format */
           <Markdown
-            className="px-5 py-4 text-sm text-gray-800 leading-relaxed
-              [&_h1]:text-lg [&_h1]:font-bold [&_h1]:text-navy [&_h1]:mt-4 [&_h1]:mb-2
-              [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-navy [&_h2]:mt-4 [&_h2]:mb-2
-              [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-navy [&_h3]:mt-3 [&_h3]:mb-1
+            className="text-[15px] text-ink leading-relaxed
+              [&_h1]:font-serif [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-navy [&_h1]:mt-5 [&_h1]:mb-2
+              [&_h2]:font-serif [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-navy [&_h2]:mt-5 [&_h2]:mb-2
+              [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-navy [&_h3]:mt-3 [&_h3]:mb-1
               [&_:first-child]:mt-0
               [&_p]:mb-2 [&_strong]:font-semibold
               [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:space-y-1
               [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_ol]:space-y-1
-              [&_hr]:my-4 [&_hr]:border-gray-200"
+              [&_hr]:my-4 [&_hr]:border-hair"
           >
             {plainText}
           </Markdown>
-        </div>
-      )}
+        )}
+      </article>
+
+      {/* Quiet process metadata — reference, not headline */}
+      <div className="flex flex-wrap gap-x-5 gap-y-1 px-1 text-xs">
+        <Stat
+          label="Words"
+          value={result.wordCount != null ? result.wordCount.toLocaleString() : '—'}
+        />
+        <Stat
+          label="Sections analyzed"
+          value={result.chunksProcessed != null ? result.chunksProcessed : '—'}
+        />
+        <Stat label="Depth" value={result.depth || '—'} />
+        <Stat label="Format" value={result.format || '—'} />
+        <Stat
+          label="Cost"
+          value={result.actualCost != null ? `$${Number(result.actualCost).toFixed(3)}` : '—'}
+        />
+      </div>
 
       {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+        <p className="rounded-xl border border-risk-high/25 bg-risk-high/[0.08] px-4 py-3 text-sm text-risk-high-ink">
           {error}
         </p>
       )}

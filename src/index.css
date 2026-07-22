@@ -1,12 +1,29 @@
 @import "tailwindcss";
 
 @theme {
+  /* Authority anchor — deep navy, used for headers, rules, primary actions */
   --color-navy: #1F3864;
   --color-navy-dark: #16294A;
   --color-navy-light: #2C4A7C;
   --color-navy-pale: #EEF1F7;
+
+  /* Warm "printed memo" surfaces — off-white paper instead of stark white/gray */
+  --color-paper: #F4F0E6;    /* page background */
+  --color-surface: #FCFAF4;  /* cards, tables, the memo sheet */
+  --color-ink: #2B2521;      /* warm near-black body text */
+  --color-faint: #6E655C;    /* muted warm gray for meta/labels */
+  --color-hair: #E4DDCE;     /* warm hairline borders on paper */
+
+  /* Risk hierarchy — HIGH is a genuinely alarming red-orange, not a pastel */
+  --color-risk-high: #C2410C;
+  --color-risk-high-ink: #7C2D12;
+  --color-amber: #B45309;
+  --color-amber-ink: #78350F;
+
+  /* Serif/slab for headers + the overview lead; body/data stay on system sans */
+  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
 }
 
 body {
-  @apply bg-gray-50 text-gray-900 antialiased;
+  @apply bg-paper text-ink antialiased;
 }

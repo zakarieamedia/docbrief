@@ -58,13 +58,17 @@ const FINAL_SYSTEM_PROMPT =
   '  "preparedDate": string,\n' +
   '  "parties": [{ "name": string, "role": string }],\n' +
   '  "financialTerms": [{ "item": string, "amount": string, "notes": string }],\n' +
-  '  "keyObligations": [{ "party": string, "obligation": string, "deadline": string }],\n' +
-  '  "importantDates": [{ "date": string, "event": string }],\n' +
-  '  "risksAndFlags": [{ "severity": "high" | "medium" | "low", "description": string }],\n' +
+  '  "keyObligations": [{ "party": string, "obligation": string, "deadline": string, "source": string }],\n' +
+  '  "importantDates": [{ "date": string, "event": string, "source": string }],\n' +
+  '  "risksAndFlags": [{ "severity": "high" | "medium" | "low", "description": string, "source": string }],\n' +
   '  "overview": string\n' +
   '}\n' +
   'The overview is 2-3 sentences maximum. Maximum 4 entries per array — keep only what ' +
   'is decision-critical. Use "Not specified" when the document does not state something. ' +
+  'For every risk, obligation, and important date, set "source" to where it is found in ' +
+  'the document — the section, exhibit, clause, or article name (e.g. "Exhibit D", ' +
+  '"Section 5.2", "Recitals"). Use "" when the location is unclear. Never fabricate a ' +
+  'page number or a citation that is not supported by the source. ' +
   'Never invent facts that are not present in the source.'
 
 // The model is instructed to return bare JSON, but defensively strip any

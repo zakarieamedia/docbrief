@@ -5,8 +5,11 @@ node_modules
 dist
 dist-ssr
 
-# Environment files (never commit real keys)
-.env
+# Environment files (never commit real keys) — covers .env, .env.local,
+# .env.production, and anything `vercel env pull` writes. .env.example stays
+# committable as a safe placeholder.
+.env*
+!.env.example
 *.local
 
 # Logs
