@@ -88,6 +88,40 @@ function repairJson(text) {
   return out
 }
 
+// Defense-in-depth against schema-completion padding: a row whose content
+// fields are all empty or placeholder text ("Not specified", "None", "N/A",
+// "—") is filler, not information — drop it so it can never reach the UI.
+// Applied to fresh model responses here AND to rows reopened from history
+// (via toStructuredSummary), so old saved summaries get the same protection.
+const PLACEHOLDER_ROW_VALUE = /^(not specified|none|none identified|n\/a|unknown|—|–|-)?$/i
+
+export function sanitizeSummaryRows(rows, contentFields) {
+  if (!Array.isArray(rows)) return []
+  return rows.filter((row) =>
+    contentFields.some(
+      (f) =>
+        typeof row?.[f] === 'string' && !PLACEHOLDER_ROW_VALUE.test(row[f].trim()),
+    ),
+  )
+}
+
+export function sanitizeSummary(summary) {
+  return {
+    ...summary,
+    parties: sanitizeSummaryRows(summary.parties, ['name', 'role']),
+    financialTerms: sanitizeSummaryRows(summary.financialTerms, ['item', 'amount', 'notes']),
+    keyObligations: sanitizeSummaryRows(summary.keyObligations, [
+      'party',
+      'obligation',
+      'deadline',
+    ]),
+    importantDates: sanitizeSummaryRows(summary.importantDates, ['date', 'event']),
+    // `source` is deliberately not a content field — a row carrying only a
+    // citation says nothing.
+    risksAndFlags: sanitizeSummaryRows(summary.risksAndFlags, ['description', 'title']),
+  }
+}
+
 // The model is instructed to return bare JSON, but defensively strip any
 // surrounding prose/code fences by slicing to the outermost braces, and
 // attempt a repair pass before giving up.
@@ -110,7 +144,7 @@ function parseSummary(text) {
   }
   const str = (v) => (typeof v === 'string' ? v : '')
   const arr = (v) => (Array.isArray(v) ? v : [])
-  return {
+  return sanitizeSummary({
     documentTitle: str(raw.documentTitle),
     documentType: str(raw.documentType),
     preparedDate: str(raw.preparedDate),
@@ -121,7 +155,7 @@ function parseSummary(text) {
     risksAndFlags: arr(raw.risksAndFlags),
     fullSummary: str(raw.fullSummary),
     overview: str(raw.overview),
-  }
+  })
 }
 
 export function splitIntoChunks(text, size = CHUNK_SIZE) {

@@ -39,7 +39,7 @@ function SectionHead({ children, tone = 'navy' }) {
 
 function CleanTable({ columns, rows }) {
   if (!rows?.length) {
-    return <p className="px-4 py-3 text-sm italic text-faint">None identified.</p>
+    return <p className="px-4 py-3 text-sm italic text-faint">None identified in this document.</p>
   }
   return (
     <div className="overflow-x-auto rounded-md border border-hair bg-surface">
@@ -168,7 +168,7 @@ export function RisksPanel({ summary }) {
         </div>
       ) : (
         <p className="mt-4 rounded-md border border-hair bg-surface px-4 py-3 text-sm italic text-faint">
-          None identified.
+          None identified in this document.
         </p>
       )}
     </section>
@@ -239,7 +239,7 @@ export function ObligationsDatesPanel({ summary }) {
             ))}
           </ul>
         ) : (
-          <p className="mt-2 text-sm italic text-faint">None identified.</p>
+          <p className="mt-2 text-sm italic text-faint">None identified in this document.</p>
         )}
       </section>
 
@@ -258,7 +258,7 @@ export function ObligationsDatesPanel({ summary }) {
             ))}
           </ul>
         ) : (
-          <p className="mt-2 text-sm italic text-faint">None identified.</p>
+          <p className="mt-2 text-sm italic text-faint">None identified in this document.</p>
         )}
       </section>
     </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { jsPDF } from 'jspdf'
 import { supabase } from '../lib/supabase'
+import { sanitizeSummary } from '../lib/claude'
 import Markdown from './Markdown'
 import DocChat from './DocChat'
 import {
@@ -34,7 +35,9 @@ export function toStructuredSummary(value) {
     }
   }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
-  return raw
+  // Old history rows predate the anti-padding prompt — scrub filler rows the
+  // same way fresh responses are scrubbed.
+  return sanitizeSummary(raw)
 }
 
 function summaryToText(summary, fileName) {

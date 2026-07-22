@@ -149,14 +149,26 @@ export default function App() {
   if (!session) return <Auth />
 
   // Which sidebar tabs the open document gets. Structured summaries get the
-  // section tabs (Full Summary only once a narrative exists for it); legacy
-  // plain-text summaries are all prose, so they get Full Summary + Ask.
+  // section tabs; legacy plain-text summaries are all prose, so they get
+  // Full Summary + Ask. Section tabs only appear when they have real content
+  // — with one deliberate exception: Risks & Flags ALWAYS shows, even empty,
+  // because a hidden risks tab would silently imply "this document is safe"
+  // when it actually means "nothing was flagged."
   const summaryObj = result ? toStructuredSummary(result.summary) : null
   const docTitle = result ? summaryObj?.documentTitle || result.fileName || 'Document' : null
   const tabs = !result
     ? []
     : summaryObj
-      ? DOC_TABS.filter((t) => t.id !== 'summary' || Boolean(summaryObj.fullSummary))
+      ? DOC_TABS.filter((t) => {
+          if (t.id === 'summary') return Boolean(summaryObj.fullSummary)
+          if (t.id === 'parties')
+            return summaryObj.parties.length > 0 || summaryObj.financialTerms.length > 0
+          if (t.id === 'obligations')
+            return (
+              summaryObj.keyObligations.length > 0 || summaryObj.importantDates.length > 0
+            )
+          return true // overview, risks, chat always
+        })
       : DOC_TABS.filter((t) => t.id === 'summary' || t.id === 'chat')
 
   // Never render a doc view without a document, or a tab the document
