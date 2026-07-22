@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { CHUNK_SYSTEM_PROMPT, buildFinalSystemPrompt, narrativeWordTarget } from './prompts'
 
 // Claude calls go through the serverless proxy (api/summarize.js) so the
 // Anthropic API key never reaches the browser. The proxy only accepts requests
@@ -13,8 +14,10 @@ const CHAT_MODEL = 'claude-haiku-4-5'
 
 const MAX_TOKENS = 2000
 // The structured JSON summary needs headroom beyond the per-chunk limit —
-// a response cut off at max_tokens is unparseable JSON.
-const FINAL_MAX_TOKENS = 3000
+// a response cut off at max_tokens is unparseable JSON. The fullSummary
+// narrative (up to ~1300 words at Deep) plus the structured fields needs
+// real room; the proxy's own ceiling must stay above this.
+const FINAL_MAX_TOKENS = 6000
 const CHUNK_SIZE = 150000
 
 // Sonnet pricing: $3 / MTok input, $15 / MTok output.
@@ -33,57 +36,77 @@ export const COST_PER_CALL = 0.015
  */
 export function estimateAnalysis(text) {
   const chunks = Math.max(Math.ceil(text.length / CHUNK_SIZE), 1)
-  const calls = chunks > 1 ? chunks + 1 : 1
   const inputTokens = text.length / 4
+  // One MAX_TOKENS call per chunk plus one FINAL_MAX_TOKENS consolidation call
+  // for multi-chunk runs; single-chunk runs are one final-sized call.
+  const outputTokens = chunks > 1 ? chunks * MAX_TOKENS + FINAL_MAX_TOKENS : FINAL_MAX_TOKENS
   const cost =
-    inputTokens * INPUT_COST_PER_TOKEN + calls * MAX_TOKENS * OUTPUT_COST_PER_TOKEN
+    inputTokens * INPUT_COST_PER_TOKEN + outputTokens * OUTPUT_COST_PER_TOKEN
   return {
     chunks,
     estimatedCost: Math.round(cost * 1000) / 1000,
   }
 }
 
-const CHUNK_SYSTEM_PROMPT =
-  'You are an expert document analyst. Extract ONLY the most critical information ' +
-  'from this chunk in 3-4 bullet points maximum. Focus exclusively on: parties and ' +
-  'their roles, key obligations, dollar amounts, dates, deadlines, and risks. Be ' +
-  'extremely concise. No boilerplate, no obvious statements, no lengthy explanations.'
-
-const FINAL_SYSTEM_PROMPT =
-  'You are an expert document analyst. Respond with ONLY a single valid JSON object — ' +
-  'no markdown, no code fences, no commentary. Use exactly this shape:\n' +
-  '{\n' +
-  '  "documentTitle": string,\n' +
-  '  "documentType": string,\n' +
-  '  "preparedDate": string,\n' +
-  '  "parties": [{ "name": string, "role": string }],\n' +
-  '  "financialTerms": [{ "item": string, "amount": string, "notes": string }],\n' +
-  '  "keyObligations": [{ "party": string, "obligation": string, "deadline": string, "source": string }],\n' +
-  '  "importantDates": [{ "date": string, "event": string, "source": string }],\n' +
-  '  "risksAndFlags": [{ "severity": "high" | "medium" | "low", "description": string, "source": string }],\n' +
-  '  "overview": string\n' +
-  '}\n' +
-  'The overview is 2-3 sentences maximum. Maximum 4 entries per array — keep only what ' +
-  'is decision-critical. Use "Not specified" when the document does not state something. ' +
-  'For every risk, obligation, and important date, set "source" to where it is found in ' +
-  'the document — the section, exhibit, clause, or article name (e.g. "Exhibit D", ' +
-  '"Section 5.2", "Recitals"). Use "" when the location is unclear. Never fabricate a ' +
-  'page number or a citation that is not supported by the source. ' +
-  'Never invent facts that are not present in the source.'
+// The long fullSummary narrative raises the odds of the model slipping an
+// unescaped quote or a raw newline into a JSON string despite the prompt.
+// Walk the text tracking string state: a quote inside a string only ends it
+// when followed (after whitespace) by a structural character — otherwise
+// escape it. Raw newlines/tabs inside strings get escaped too.
+function repairJson(text) {
+  let out = ''
+  let inString = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (!inString) {
+      if (ch === '"') inString = true
+      out += ch
+      continue
+    }
+    if (ch === '\\') {
+      out += ch + (text[i + 1] ?? '')
+      i++
+      continue
+    }
+    if (ch === '"') {
+      let j = i + 1
+      while (j < text.length && /\s/.test(text[j])) j++
+      const next = text[j]
+      if (next === undefined || ',:}]'.includes(next)) {
+        inString = false
+        out += ch
+      } else {
+        out += '\\"'
+      }
+      continue
+    }
+    if (ch === '\n') out += '\\n'
+    else if (ch === '\r') out += '\\r'
+    else if (ch === '\t') out += '\\t'
+    else out += ch
+  }
+  return out
+}
 
 // The model is instructed to return bare JSON, but defensively strip any
-// surrounding prose/code fences by slicing to the outermost braces.
+// surrounding prose/code fences by slicing to the outermost braces, and
+// attempt a repair pass before giving up.
 function parseSummary(text) {
   const start = text.indexOf('{')
   const end = text.lastIndexOf('}')
   if (start === -1 || end <= start) {
     throw new Error('The model did not return a structured summary. Please try again.')
   }
+  const slice = text.slice(start, end + 1)
   let raw
   try {
-    raw = JSON.parse(text.slice(start, end + 1))
+    raw = JSON.parse(slice)
   } catch {
-    throw new Error('Could not parse the structured summary. Please try again.')
+    try {
+      raw = JSON.parse(repairJson(slice))
+    } catch {
+      throw new Error('Could not parse the structured summary. Please try again.')
+    }
   }
   const str = (v) => (typeof v === 'string' ? v : '')
   const arr = (v) => (Array.isArray(v) ? v : [])
@@ -96,6 +119,7 @@ function parseSummary(text) {
     keyObligations: arr(raw.keyObligations),
     importantDates: arr(raw.importantDates),
     risksAndFlags: arr(raw.risksAndFlags),
+    fullSummary: str(raw.fullSummary),
     overview: str(raw.overview),
   }
 }
@@ -171,18 +195,26 @@ async function callClaude(system, userContent, maxTokens = MAX_TOKENS) {
 /**
  * Summarize a full document. The text is split into 150k-char chunks,
  * each chunk reduced to a few key bullets, then consolidated into one
- * structured summary object (see FINAL_SYSTEM_PROMPT for its shape).
+ * structured summary object (see buildFinalSystemPrompt for its shape).
  *
  * onProgress({ current, total, percent, stage }) fires before each API call.
  * Returns { summary, chunksProcessed, usage } where usage holds the summed
  * input/output tokens across all calls and the actual cost in dollars.
  */
-export async function summarizeDocument(text, { focus }, onProgress) {
+export async function summarizeDocument(text, { depth, focus }, onProgress) {
   const chunks = splitIntoChunks(text)
   const total = chunks.length
   const focusLine = focus?.trim()
     ? `Pay particular attention to the following focus areas: ${focus.trim()}.\n`
     : ''
+
+  // Summary Depth drives how dense the fullSummary narrative is — the word
+  // target scales with the document's own length, clamped per depth.
+  const docWords = text.split(/\s+/).filter(Boolean).length
+  const finalSystemPrompt = buildFinalSystemPrompt({
+    depth,
+    narrativeWords: narrativeWordTarget(docWords, depth),
+  })
 
   let inputTokens = 0
   let outputTokens = 0
@@ -204,7 +236,7 @@ export async function summarizeDocument(text, { focus }, onProgress) {
   if (total === 1) {
     onProgress?.({ current: 1, total: 1, percent: 0, stage: 'Summarizing document' })
     const { text: response, usage, stopReason } = await callClaude(
-      FINAL_SYSTEM_PROMPT,
+      finalSystemPrompt,
       `${focusLine}Summarize this document:\n\n${chunks[0]}`,
       FINAL_MAX_TOKENS,
     )
@@ -239,7 +271,7 @@ export async function summarizeDocument(text, { focus }, onProgress) {
     stage: 'Consolidating final summary',
   })
   const { text: response, usage, stopReason } = await callClaude(
-    FINAL_SYSTEM_PROMPT,
+    finalSystemPrompt,
     `Below are ${total} partial summaries of consecutive sections of one document. ` +
       `Merge them into a single final summary.\n${focusLine}\n` +
       chunkSummaries.map((s, i) => `--- Part ${i + 1} ---\n${s}`).join('\n\n'),

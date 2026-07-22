@@ -103,6 +103,29 @@ export function OverviewPanel({ summary, fileName }) {
   )
 }
 
+// Full Summary tab: the narrative walkthrough — the document explained
+// section by section in plain English, denser than the overview lead.
+export function FullSummaryPanel({ summary }) {
+  return (
+    <div>
+      <SectionHead>Full Summary</SectionHead>
+      <Markdown
+        className="mt-4 text-[15px] leading-relaxed text-ink
+          [&_h1]:font-serif [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-navy [&_h1]:mt-5 [&_h1]:mb-2
+          [&_h2]:font-serif [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-navy [&_h2]:mt-5 [&_h2]:mb-2
+          [&_h3]:font-serif [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-navy [&_h3]:mt-4 [&_h3]:mb-1
+          [&_:first-child]:mt-0
+          [&_p]:mb-2.5 [&_strong]:font-semibold
+          [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:space-y-1
+          [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_ol]:space-y-1
+          [&_hr]:my-4 [&_hr]:border-hair"
+      >
+        {summary.fullSummary}
+      </Markdown>
+    </div>
+  )
+}
+
 // Risks & Flags tab: the hero. Strongest visual weight in the app.
 export function RisksPanel({ summary }) {
   const risks = [...(summary.risksAndFlags ?? [])].sort(

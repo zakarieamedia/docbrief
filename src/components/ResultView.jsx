@@ -5,6 +5,7 @@ import Markdown from './Markdown'
 import DocChat from './DocChat'
 import {
   OverviewPanel,
+  FullSummaryPanel,
   RisksPanel,
   PartiesFinancialsPanel,
   ObligationsDatesPanel,
@@ -47,6 +48,7 @@ function summaryToText(summary, fileName) {
     [summary.documentType, summary.preparedDate].filter(Boolean).join(' — '),
     '',
     ...section('Document Overview', summary.overview ? [summary.overview] : []),
+    ...(summary.fullSummary ? section('Full Summary', [summary.fullSummary]) : []),
     ...section(
       'Key Parties',
       (summary.parties ?? []).map((p) => `- ${p.name || '—'}: ${p.role || '—'}`),
@@ -482,8 +484,16 @@ export default function ResultView({
         </Sheet>
       )}
 
-      {/* Full Summary: legacy markdown/plain-text summaries saved before the
-          structured format live here (their whole content is prose). */}
+      {/* Full Summary: the narrative walkthrough for structured summaries
+          that carry one (the tab only appears when it exists)… */}
+      {activeTab === 'summary' && summary?.fullSummary && (
+        <Sheet>
+          <FullSummaryPanel summary={summary} />
+        </Sheet>
+      )}
+
+      {/* …and legacy markdown/plain-text summaries saved before the
+          structured format (their whole content is prose). */}
       {activeTab === 'summary' && !summary && (
         <Sheet>
           <Markdown

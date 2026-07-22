@@ -11,8 +11,10 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 // can't point the proxy at an arbitrary (and arbitrarily expensive) model.
 const ALLOWED_MODELS = ['claude-sonnet-4-6', 'claude-haiku-4-5']
 const DEFAULT_MODEL = 'claude-sonnet-4-6'
-// Hard ceiling regardless of what the client asks for.
-const MAX_TOKENS_LIMIT = 4096
+// Hard ceiling regardless of what the client asks for. The final summarize
+// call requests 6000 (structured fields + the fullSummary narrative), so this
+// must stay above that.
+const MAX_TOKENS_LIMIT = 8192
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
