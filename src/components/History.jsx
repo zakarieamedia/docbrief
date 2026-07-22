@@ -28,9 +28,13 @@ export default function History({ session, version, onSelect, onDelete }) {
       setError('')
       // Scope to the signed-in user explicitly: the admin's RLS policies
       // would otherwise mix every user's rows into their personal sidebar.
+      // Explicit columns, not select('*') — the list stays lean no matter
+      // what heavier columns the table grows later.
       const { data, error } = await supabase
         .from('summaries')
-        .select('*')
+        .select(
+          'id, file_name, file_type, word_count, depth, format, focus, summary_text, chunks_processed, actual_cost, created_at, document_path',
+        )
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
       if (cancelled) return
@@ -61,6 +65,16 @@ export default function History({ session, version, onSelect, onDelete }) {
       // RLS silently filters rows the policy doesn't allow deleting.
       setError('Delete was blocked by row-level security. Apply the policies in supabase/schema.sql to the database.')
     } else {
+      // Best-effort cleanup of the stored document text — the row is already
+      // gone, so a failure here only leaves an orphaned (private) file.
+      if (item.document_path) {
+        const { error: removeError } = await supabase.storage
+          .from('documents')
+          .remove([item.document_path])
+        if (removeError) {
+          console.warn('Could not remove stored document text:', removeError.message)
+        }
+      }
       setItems((prev) => prev.filter((i) => i.id !== item.id))
       onDelete?.(item.id)
     }

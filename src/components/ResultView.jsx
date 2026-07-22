@@ -356,6 +356,7 @@ export default function ResultView({
   activeTab,
   documentText,
   documentPages,
+  documentTextStatus,
 }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(Boolean(result.saved))
@@ -371,6 +372,27 @@ export default function ResultView({
     setSaving(true)
     setError('')
     try {
+      // Persist the extracted document text (and per-page array for PDFs) to
+      // the private `documents` Storage bucket so Q&A still works when this
+      // summary is reopened from history. The path starts with the user's id
+      // — the storage RLS policies key on that first path segment.
+      let documentPath = null
+      if (documentText) {
+        documentPath = `${session.user.id}/${crypto.randomUUID?.() ?? Date.now()}.json`
+        const payload = new Blob(
+          [JSON.stringify({ text: documentText, pages: documentPages ?? null })],
+          { type: 'application/json' },
+        )
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(documentPath, payload, { contentType: 'application/json' })
+        if (uploadError) {
+          throw new Error(
+            `Could not store the document text for Q&A: ${uploadError.message}`,
+          )
+        }
+      }
+
       const { error } = await supabase.from('summaries').insert({
         user_id: session.user.id,
         user_email: session.user.email,
@@ -383,10 +405,11 @@ export default function ResultView({
         summary_text: summary ? JSON.stringify(summary) : plainText,
         chunks_processed: result.chunksProcessed ?? null,
         actual_cost: result.actualCost ?? null,
+        document_path: documentPath,
       })
       if (error) throw error
       setSaved(true)
-      onSaved?.()
+      onSaved?.(documentPath)
     } catch (err) {
       setError(err.message || 'Could not save to history.')
     } finally {
@@ -521,6 +544,7 @@ export default function ResultView({
         <DocChat
           documentText={documentText}
           documentPages={documentPages}
+          textStatus={documentTextStatus}
           userInitial={(session.user.email?.[0] || '?').toUpperCase()}
         />
       </div>

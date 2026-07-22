@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { summarizeDocument, estimateAnalysis } from './lib/claude'
@@ -57,6 +57,34 @@ export default function App() {
     loadStoredResult() ? { view: 'doc', tab: 'overview' } : { view: 'new' },
   )
 
+  // The document text backing the OPEN result's Q&A, keyed by result id so a
+  // summary is only ever grounded in its own document (never in whatever was
+  // last uploaded). Fresh analyses set it directly; history rows fetch it
+  // from the private Storage bucket. status: 'ready' | 'loading' | 'missing'.
+  const [docText, setDocText] = useState(null) // { resultId, status, text?, pages? }
+  const docFetchSeq = useRef(0)
+
+  const loadStoredDocument = async (resultId, path) => {
+    const seq = ++docFetchSeq.current
+    setDocText({ resultId, status: 'loading' })
+    try {
+      const { data, error } = await supabase.storage.from('documents').download(path)
+      if (error) throw error
+      const parsed = JSON.parse(await data.text())
+      if (docFetchSeq.current !== seq) return // a newer result took over
+      setDocText({
+        resultId,
+        status: 'ready',
+        text: parsed.text,
+        pages: parsed.pages ?? null,
+      })
+    } catch (err) {
+      console.error('Could not load the stored document text:', err)
+      if (docFetchSeq.current !== seq) return
+      setDocText({ resultId, status: 'missing' })
+    }
+  }
+
   // Reset everything tied to the signed-in user — covers every sign-out
   // path (button, expiry, another tab) so the next user on this browser
   // sees none of the previous user's document, summary, or pending modal.
@@ -64,6 +92,8 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEY)
     setResult(null)
     setDoc(null)
+    setDocText(null)
+    docFetchSeq.current++ // invalidate any in-flight storage fetch
     setError('')
     setProgress(null)
     setPendingAnalysis(null)
@@ -91,6 +121,16 @@ export default function App() {
     }
   }, [result])
 
+  // A result rehydrated after a refresh has no in-memory document text. If it
+  // was saved with a stored document, fetch that; otherwise the Q&A tab shows
+  // the honest re-upload fallback.
+  useEffect(() => {
+    const r = loadStoredResult()
+    if (r?.document_path) loadStoredDocument(r.id ?? 'rehydrated', r.document_path)
+    else if (r) setDocText({ resultId: r.id ?? 'rehydrated', status: 'missing' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const isAdmin =
     Boolean(session) && session.user.email === import.meta.env.VITE_ADMIN_EMAIL
 
@@ -111,8 +151,9 @@ export default function App() {
         { depth, format, focus },
         setProgress,
       )
+      const id = crypto.randomUUID?.() ?? String(Math.random())
       setResult({
-        id: crypto.randomUUID?.() ?? String(Math.random()),
+        id,
         summary,
         wordCount: doc.wordCount,
         chunksProcessed,
@@ -123,6 +164,9 @@ export default function App() {
         fileName: doc.name,
         fileType: doc.type,
       })
+      // Bind this analysis's text to this result — Q&A grounds only in it.
+      docFetchSeq.current++
+      setDocText({ resultId: id, status: 'ready', text: doc.text, pages: doc.pages ?? null })
       setNav({ view: 'doc', tab: 'overview' })
     } catch (err) {
       setError(err.message || 'Summarization failed.')
@@ -181,6 +225,10 @@ export default function App() {
   // conversation scrolling internally) instead of scrolling the page.
   const chatActive = view === 'doc' && activeTab === 'chat'
 
+  // Only hand the chat text that belongs to THIS result.
+  const activeDocText =
+    docText && result && docText.resultId === (result.id ?? 'rehydrated') ? docText : null
+
   const home = (
     <main className={chatActive ? 'h-full px-6 sm:px-10' : 'min-h-full px-6 py-8 sm:px-10'}>
       {view === 'new' && (
@@ -235,9 +283,17 @@ export default function App() {
                 focus: row.focus,
                 fileName: row.file_name,
                 fileType: row.file_type,
+                document_path: row.document_path ?? null,
                 saved: true,
               })
               setError('')
+              // Rows saved with a stored document get their text back for
+              // Q&A; older rows show the honest re-upload fallback.
+              if (row.document_path) loadStoredDocument(row.id, row.document_path)
+              else {
+                docFetchSeq.current++
+                setDocText({ resultId: row.id, status: 'missing' })
+              }
               setNav({ view: 'doc', tab: 'overview' })
             }}
             onDelete={(id) => {
@@ -257,10 +313,18 @@ export default function App() {
             key={result.id ?? 'rehydrated'}
             result={result}
             session={session}
-            onSaved={() => setHistoryVersion((v) => v + 1)}
+            onSaved={(documentPath) => {
+              setHistoryVersion((v) => v + 1)
+              // Remember where the text lives so a refresh can restore Q&A.
+              if (documentPath)
+                setResult((prev) => (prev ? { ...prev, document_path: documentPath } : prev))
+            }}
             activeTab={activeTab}
-            documentText={doc?.text}
-            documentPages={doc?.pages}
+            documentText={activeDocText?.status === 'ready' ? activeDocText.text : undefined}
+            documentPages={
+              activeDocText?.status === 'ready' ? (activeDocText.pages ?? undefined) : undefined
+            }
+            documentTextStatus={activeDocText?.status ?? 'missing'}
           />
         </div>
       )}

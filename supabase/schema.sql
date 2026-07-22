@@ -31,3 +31,23 @@ create policy "Admin deletes any summary" on summaries
 --   alter table summaries add column chunks_processed int;
 --   alter table summaries add column actual_cost numeric;
 --   (then run the two admin policies above)
+
+-- ── Document text persistence (Q&A on reopened summaries) ──────────────────
+-- The extracted document text (+ per-page array for PDFs) is stored as JSON
+-- in the PRIVATE storage bucket `documents`, under <user_id>/<uuid>.json.
+-- The summaries row keeps only the path:
+alter table summaries add column if not exists document_path text;
+
+-- Create the bucket in Dashboard -> Storage -> New bucket, name `documents`,
+-- with "Public bucket" OFF. Then run these storage policies (RLS is already
+-- enabled on storage.objects). Each keys on the first path segment being the
+-- caller's own user id:
+create policy "Users upload own documents" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'documents' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "Users read own documents" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'documents' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "Users delete own documents" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'documents' and (storage.foldername(name))[1] = auth.uid()::text);

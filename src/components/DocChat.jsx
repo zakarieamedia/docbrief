@@ -15,7 +15,15 @@ const SUGGESTIONS = [
 // document text, and gets back a conversational answer plus a citation
 // pointing into the source. Questions sit right, answers left, each answer
 // carries its source tag, and the composer is pinned at the bottom.
-export default function DocChat({ documentText, documentPages, userInitial = '?' }) {
+// `textStatus`: 'ready' (text present), 'loading' (being fetched from
+// Storage for a reopened summary), or 'missing' (legacy row / no stored
+// text — the honest fallback asks for a re-upload).
+export default function DocChat({
+  documentText,
+  documentPages,
+  textStatus = 'missing',
+  userInitial = '?',
+}) {
   // Each message is { role, content }. Assistant messages also carry `citation`.
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -110,10 +118,15 @@ export default function DocChat({ documentText, documentPages, userInitial = '?'
                   </button>
                 ))}
               </div>
+            ) : textStatus === 'loading' ? (
+              <p className="mt-4 flex items-center gap-2 text-sm italic text-faint">
+                <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-navy/40 border-t-transparent" />
+                Retrieving the document text for this summary…
+              </p>
             ) : (
               <p className="mt-4 max-w-sm text-sm italic text-faint">
                 This saved summary doesn&rsquo;t include the document text — re-upload the
-                document to ask questions.
+                document to ask questions about it.
               </p>
             )}
           </div>
@@ -182,7 +195,13 @@ export default function DocChat({ documentText, documentPages, userInitial = '?'
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={documentText ? 'Ask a question…' : 'Document text unavailable'}
+          placeholder={
+            documentText
+              ? 'Ask a question…'
+              : textStatus === 'loading'
+                ? 'Retrieving document text…'
+                : 'Document text unavailable'
+          }
           disabled={loading || !documentText}
           className="flex-1 rounded-full border border-hair bg-white px-4 py-2.5 text-sm text-ink placeholder-faint focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/20 disabled:cursor-not-allowed disabled:opacity-60"
         />
