@@ -47,8 +47,10 @@ export function narrativeWordTarget(docWords, depth) {
 export const CHUNK_SYSTEM_PROMPT =
   'You are an expert document analyst. Extract ONLY the most critical information ' +
   'from this chunk in 3-4 bullet points maximum. Focus exclusively on: parties and ' +
-  'their roles, key obligations, dollar amounts, dates, deadlines, and risks. Be ' +
-  'extremely concise. No boilerplate, no obvious statements, no lengthy explanations.\n' +
+  'their roles, key obligations, dollar amounts, dates, deadlines, and risks. When a ' +
+  'bullet flags a risk, append the exact supporting passage from the text in ' +
+  'parentheses, verbatim, 25 words or fewer. Be extremely concise. No boilerplate, ' +
+  'no obvious statements, no lengthy explanations.\n' +
   'Then add a line "SECTIONS:" followed by one line per major section, article, or ' +
   'exhibit in this chunk — its name exactly as titled, a dash, and a one-sentence ' +
   'plain-English gist of what it does. This outline is later used to write a ' +
@@ -75,7 +77,7 @@ export function buildFinalSystemPrompt({ depth = 'Standard', narrativeWords = 60
     '  "financialTerms": [{ "item": string, "amount": string, "notes": string }],\n' +
     '  "keyObligations": [{ "party": string, "obligation": string, "deadline": string, "source": string }],\n' +
     '  "importantDates": [{ "date": string, "event": string, "source": string }],\n' +
-    '  "risksAndFlags": [{ "severity": "high" | "medium" | "low", "description": string, "source": string }],\n' +
+    '  "risksAndFlags": [{ "severity": "high" | "medium" | "low", "title": string, "description": string, "sourceQuote": string, "source": string }],\n' +
     '  "fullSummary": string,\n' +
     '  "overview": string\n' +
     '}\n' +
@@ -93,6 +95,12 @@ export function buildFinalSystemPrompt({ depth = 'Standard', narrativeWords = 60
     'document states them; do not convert relative deadlines (e.g. "30 days after ' +
     'closing") into computed calendar dates. Never invent facts that are not present ' +
     'in the source.\n\n' +
+    'For each risk: "title" is a 3-7 word plain-English name for the risk (e.g. ' +
+    '“Personal guaranty has no cap”). "sourceQuote" is the exact passage from the ' +
+    'document that evidences the risk, copied verbatim character-for-character — you ' +
+    'may join two short excerpts with “…” but must never paraphrase, correct, or ' +
+    'reword inside it. If no single verbatim passage supports the risk, use "" for ' +
+    'sourceQuote rather than approximating. Keep each sourceQuote under 60 words.\n\n' +
     'fullSummary is a genuine narrative summary, distinct from the overview: walk ' +
     'through the document section by section, in document order, in plain English — ' +
     'written like a knowledgeable colleague explaining the document to a smart ' +

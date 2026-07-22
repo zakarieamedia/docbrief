@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Markdown from './Markdown'
 import PagePointer from './PagePointer'
 
@@ -126,13 +127,126 @@ export function FullSummaryPanel({ summary }) {
   )
 }
 
-// Risks & Flags tab: the hero. Strongest visual weight in the app.
+function SeverityBadge({ severity }) {
+  const sev = String(severity || 'low').toLowerCase()
+  const style = RISK[sev] ?? RISK.low
+  return (
+    <span
+      className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${style.badge}`}
+    >
+      {sev} risk
+    </span>
+  )
+}
+
+// One card in the risk grid: severity badge, title, one-line preview, source.
+// Old summaries have no title — their description takes the title slot.
+function RiskCard({ risk, onOpen }) {
+  const title = risk.title || ''
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Open risk: ${title || risk.description || 'detail'}`}
+      className="group flex flex-col rounded-xl border border-hair bg-surface p-4 text-left shadow-sm transition-all hover:border-navy/40 hover:shadow-md"
+    >
+      <span className="self-end">
+        <SeverityBadge severity={risk.severity} />
+      </span>
+      {title ? (
+        <>
+          <h3 className="mt-2.5 font-serif text-base font-bold leading-snug text-ink">
+            {title}
+          </h3>
+          <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-ink/75">
+            {risk.description || '—'}
+          </p>
+        </>
+      ) : (
+        <p className="mt-2.5 line-clamp-3 font-serif text-base font-bold leading-snug text-ink">
+          {risk.description || '—'}
+        </p>
+      )}
+      <span className="mt-auto pt-3">
+        {risk.source && <PagePointer citation={risk.source} />}
+      </span>
+    </button>
+  )
+}
+
+// Deep-dive for one risk: full description, then the exact wording from the
+// document with its citation. Deliberately NOT a jump-into-the-document
+// viewer — the quote + citation tell Frank exactly what to verify and where.
+function RiskDetail({ risk, onBack }) {
+  const sev = String(risk.severity || 'low').toLowerCase()
+  const style = RISK[sev] ?? RISK.low
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-navy hover:underline"
+      >
+        <span aria-hidden="true">←</span> All risks
+      </button>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <SeverityBadge severity={risk.severity} />
+        {risk.source && <PagePointer citation={risk.source} />}
+      </div>
+
+      <h3 className="mt-3 font-serif text-2xl font-bold leading-tight text-ink">
+        {risk.title || 'Risk detail'}
+      </h3>
+
+      <p className="mt-4 text-[15px] leading-relaxed text-ink">{risk.description || '—'}</p>
+
+      {risk.sourceQuote ? (
+        <figure
+          className={`mt-6 rounded-md border border-hair border-l-4 ${style.rail} bg-navy/[0.03] px-5 py-4`}
+        >
+          <figcaption className="text-[11px] font-semibold uppercase tracking-[0.15em] text-faint">
+            Exact wording from the document
+          </figcaption>
+          <blockquote className="mt-2 font-serif text-[16px] italic leading-relaxed text-ink">
+            &ldquo;{risk.sourceQuote}&rdquo;
+          </blockquote>
+          {risk.source && (
+            <div className="mt-3 flex items-center gap-1.5">
+              <span className="text-[11px] font-medium text-faint">Found in:</span>
+              <PagePointer citation={risk.source} />
+            </div>
+          )}
+        </figure>
+      ) : (
+        <p className="mt-6 text-sm italic text-faint">
+          The exact source wording wasn&rsquo;t captured for this risk
+          {risk.source ? (
+            <>
+              {' '}
+              — verify it at <PagePointer citation={risk.source} className="align-middle" /> in
+              the original document.
+            </>
+          ) : (
+            '.'
+          )}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// Risks & Flags tab: the hero, as a funnel — a grid of risk cards; clicking
+// one opens its deep-dive. Always visible even when empty (an absent risks
+// tab would read as a safety claim).
 export function RisksPanel({ summary }) {
+  const [selected, setSelected] = useState(null)
   const risks = [...(summary.risksAndFlags ?? [])].sort(
     (a, b) =>
       (RISK[String(a.severity).toLowerCase()] ?? RISK.low).order -
       (RISK[String(b.severity).toLowerCase()] ?? RISK.low).order,
   )
+  const current = selected != null ? risks[selected] : null
 
   return (
     <section>
@@ -143,28 +257,15 @@ export function RisksPanel({ summary }) {
         </span>
       </div>
 
-      {risks.length ? (
-        <div className="mt-4 space-y-3">
-          {risks.map((risk, i) => {
-            const sev = String(risk.severity || 'low').toLowerCase()
-            const style = RISK[sev] ?? RISK.low
-            return (
-              <div
-                key={i}
-                className={`rounded-md border border-hair border-l-4 ${style.rail} ${style.panel} px-4 py-3`}
-              >
-                <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${style.badge}`}
-                  >
-                    {sev}
-                  </span>
-                  {risk.source && <PagePointer citation={risk.source} />}
-                </div>
-                <p className="text-[15px] leading-relaxed text-ink">{risk.description || '—'}</p>
-              </div>
-            )
-          })}
+      {current ? (
+        <div className="mt-5">
+          <RiskDetail risk={current} onBack={() => setSelected(null)} />
+        </div>
+      ) : risks.length ? (
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {risks.map((risk, i) => (
+            <RiskCard key={i} risk={risk} onOpen={() => setSelected(i)} />
+          ))}
         </div>
       ) : (
         <p className="mt-4 rounded-md border border-hair bg-surface px-4 py-3 text-sm italic text-faint">
