@@ -173,21 +173,25 @@ export default function SummaryView({ summary, fileName }) {
         </div>
       </section>
 
-      {/* Obligations + Important Dates — quieter/secondary reference. */}
+      {/* Obligations + Important Dates — quieter/secondary reference.
+          Each column gets min-w-0 so a long, non-wrapping deadline can't blow
+          out its grid track and bleed across the gap into the other column
+          (grid/flex items default to min-width:auto). The party/deadline row
+          wraps, and the deadline itself wraps + breaks long tokens. */}
       <div className="mt-9 grid gap-8 md:grid-cols-2">
-        <section>
+        <section className="min-w-0">
           <SectionHead tone="faint">Obligations</SectionHead>
           {obligations.length ? (
             <ul className="mt-2 divide-y divide-hair">
               {obligations.map((o, i) => (
                 <li key={i} className="py-2.5 text-sm">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-semibold text-ink">{o.party || '—'}</span>
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                    <span className="min-w-0 break-words font-semibold text-ink">{o.party || '—'}</span>
                     {o.deadline && (
-                      <span className="whitespace-nowrap text-xs text-faint">due {o.deadline}</span>
+                      <span className="min-w-0 break-words text-xs text-faint">due {o.deadline}</span>
                     )}
                   </div>
-                  <p className="mt-0.5 leading-relaxed text-ink/80">{o.obligation || '—'}</p>
+                  <p className="mt-0.5 break-words leading-relaxed text-ink/80">{o.obligation || '—'}</p>
                   {o.source && <PagePointer citation={o.source} className="mt-1.5" />}
                 </li>
               ))}
@@ -197,13 +201,13 @@ export default function SummaryView({ summary, fileName }) {
           )}
         </section>
 
-        <section>
+        <section className="min-w-0">
           <SectionHead tone="faint">Important Dates</SectionHead>
           {dates.length ? (
             <ul className="mt-2 divide-y divide-hair">
               {dates.map((d, i) => (
-                <li key={i} className="flex items-baseline justify-between gap-3 py-2.5 text-sm">
-                  <span className="min-w-0">
+                <li key={i} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2.5 text-sm">
+                  <span className="min-w-0 break-words">
                     <span className="text-ink">{d.event || '—'}</span>
                     {d.source && <PagePointer citation={d.source} className="ml-2 align-middle" />}
                   </span>
