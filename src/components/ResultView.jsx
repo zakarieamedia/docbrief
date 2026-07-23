@@ -523,7 +523,7 @@ export default function ResultView({
       {activeTab === 'summary' && !summary && (
         <Sheet>
           <Markdown
-            className="text-[15px] text-ink leading-relaxed
+            className="break-words text-[15px] text-ink leading-relaxed
               [&_h1]:font-serif [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-navy [&_h1]:mt-5 [&_h1]:mb-2
               [&_h2]:font-serif [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-navy [&_h2]:mt-5 [&_h2]:mb-2
               [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-navy [&_h3]:mt-3 [&_h3]:mb-1

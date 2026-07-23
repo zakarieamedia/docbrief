@@ -89,7 +89,7 @@ export function OverviewPanel({ summary, fileName }) {
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-faint">
           Document Brief
         </p>
-        <h1 className="mt-1.5 font-serif text-2xl font-bold leading-tight text-navy sm:text-[1.9rem]">
+        <h1 className="mt-1.5 break-words font-serif text-2xl font-bold leading-tight text-navy sm:text-[1.9rem]">
           {summary.documentTitle || fileName || 'Untitled Document'}
         </h1>
         {metaLine && <p className="mt-2 text-sm text-faint">{metaLine}</p>}
@@ -97,7 +97,7 @@ export function OverviewPanel({ summary, fileName }) {
 
       {/* The lead paragraph. No box, bigger serif type, reads like the
           opening of a memo. */}
-      <Markdown className="mt-6 font-serif text-lg leading-relaxed text-ink sm:text-xl [&_p]:mb-3 [&_:last-child]:mb-0 [&_strong]:font-semibold">
+      <Markdown className="mt-6 break-words font-serif text-lg leading-relaxed text-ink sm:text-xl [&_p]:mb-3 [&_:last-child]:mb-0 [&_strong]:font-semibold">
         {summary.overview || 'No overview was generated for this document.'}
       </Markdown>
     </div>
@@ -111,7 +111,7 @@ export function FullSummaryPanel({ summary }) {
     <div>
       <SectionHead>Full Summary</SectionHead>
       <Markdown
-        className="mt-4 text-[15px] leading-relaxed text-ink
+        className="mt-4 break-words text-[15px] leading-relaxed text-ink
           [&_h1]:font-serif [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-navy [&_h1]:mt-5 [&_h1]:mb-2
           [&_h2]:font-serif [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-navy [&_h2]:mt-5 [&_h2]:mb-2
           [&_h3]:font-serif [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-navy [&_h3]:mt-4 [&_h3]:mb-1
@@ -155,15 +155,15 @@ function RiskCard({ risk, onOpen }) {
       </span>
       {title ? (
         <>
-          <h3 className="mt-2.5 font-serif text-base font-bold leading-snug text-ink">
+          <h3 className="mt-2.5 break-words font-serif text-base font-bold leading-snug text-ink">
             {title}
           </h3>
-          <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-ink/75">
+          <p className="mt-1.5 line-clamp-2 break-words text-sm leading-relaxed text-ink/75">
             {risk.description || '—'}
           </p>
         </>
       ) : (
-        <p className="mt-2.5 line-clamp-3 font-serif text-base font-bold leading-snug text-ink">
+        <p className="mt-2.5 line-clamp-3 break-words font-serif text-base font-bold leading-snug text-ink">
           {risk.description || '—'}
         </p>
       )}
@@ -195,11 +195,11 @@ function RiskDetail({ risk, onBack }) {
         {risk.source && <PagePointer citation={risk.source} />}
       </div>
 
-      <h3 className="mt-3 font-serif text-2xl font-bold leading-tight text-ink">
+      <h3 className="mt-3 break-words font-serif text-2xl font-bold leading-tight text-ink">
         {risk.title || 'Risk detail'}
       </h3>
 
-      <p className="mt-4 text-[15px] leading-relaxed text-ink">{risk.description || '—'}</p>
+      <p className="mt-4 break-words text-[15px] leading-relaxed text-ink">{risk.description || '—'}</p>
 
       {risk.sourceQuote ? (
         <figure
@@ -208,7 +208,7 @@ function RiskDetail({ risk, onBack }) {
           <figcaption className="text-[11px] font-semibold uppercase tracking-[0.15em] text-faint">
             Exact wording from the document
           </figcaption>
-          <blockquote className="mt-2 font-serif text-[16px] italic leading-relaxed text-ink">
+          <blockquote className="mt-2 break-words font-serif text-[16px] italic leading-relaxed text-ink">
             &ldquo;{risk.sourceQuote}&rdquo;
           </blockquote>
           {risk.source && (
@@ -354,7 +354,7 @@ export function ObligationsDatesPanel({ summary }) {
                   <span className="text-ink">{d.event || '—'}</span>
                   {d.source && <PagePointer citation={d.source} className="ml-2 align-middle" />}
                 </span>
-                <span className="whitespace-nowrap font-semibold text-navy">{d.date || '—'}</span>
+                <span className="min-w-0 break-words font-semibold text-navy">{d.date || '—'}</span>
               </li>
             ))}
           </ul>
