@@ -32,7 +32,6 @@ export async function saveAnalysisToHistory({ session, result, documentText, doc
     file_type: result.fileType,
     word_count: result.wordCount,
     depth: result.depth,
-    format: result.format,
     focus: result.focus || null,
     summary_text:
       typeof result.summary === 'string' ? result.summary : JSON.stringify(result.summary),

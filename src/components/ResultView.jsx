@@ -447,7 +447,6 @@ export default function ResultView({
               value={result.chunksProcessed != null ? result.chunksProcessed : '—'}
             />
             <Stat label="Depth" value={result.depth || '—'} />
-            <Stat label="Format" value={result.format || '—'} />
             <Stat
               label="Cost"
               value={result.actualCost != null ? `$${Number(result.actualCost).toFixed(3)}` : '—'}

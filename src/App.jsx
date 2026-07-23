@@ -46,10 +46,10 @@ export default function App() {
   const [progress, setProgress] = useState(null) // { current, total, percent, stage }
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
-  const [result, setResult] = useState(loadStoredResult) // { summary, wordCount, chunksProcessed, depth, format, focus, fileName, fileType }
+  const [result, setResult] = useState(loadStoredResult) // { summary, wordCount, chunksProcessed, depth, focus, fileName, fileType }
   const [historyVersion, setHistoryVersion] = useState(0)
   // Analyze settings awaiting user confirmation in the modal; null = no modal.
-  const [pendingAnalysis, setPendingAnalysis] = useState(null) // { depth, format, focus }
+  const [pendingAnalysis, setPendingAnalysis] = useState(null) // { depth, focus }
 
   // What the main area shows: { view: 'new' } | { view: 'history' } |
   // { view: 'doc', tab: <DOC_TABS id> }. A rehydrated result opens on its
@@ -169,7 +169,7 @@ export default function App() {
     setPendingAnalysis(settings)
   }
 
-  const runAnalysis = async ({ depth, format, focus }) => {
+  const runAnalysis = async ({ depth, focus }) => {
     if (!doc || processing) return
     setProcessing(true)
     setError('')
@@ -178,7 +178,7 @@ export default function App() {
     try {
       const { summary, chunksProcessed, usage } = await summarizeDocument(
         doc.text,
-        { depth, format, focus },
+        { depth, focus },
         setProgress,
       )
       const id = crypto.randomUUID?.() ?? String(Math.random())
@@ -189,7 +189,6 @@ export default function App() {
         chunksProcessed,
         actualCost: usage?.actualCost ?? null,
         depth,
-        format,
         focus,
         fileName: doc.name,
         fileType: doc.type,
@@ -207,7 +206,6 @@ export default function App() {
           chunksProcessed,
           actualCost: usage?.actualCost ?? null,
           depth,
-          format,
           focus,
           fileName: doc.name,
           fileType: doc.type,
@@ -326,7 +324,6 @@ export default function App() {
                 chunksProcessed: row.chunks_processed,
                 actualCost: row.actual_cost != null ? Number(row.actual_cost) : null,
                 depth: row.depth,
-                format: row.format,
                 focus: row.focus,
                 fileName: row.file_name,
                 fileType: row.file_type,

@@ -36,7 +36,7 @@ export default function History({ session, version, onSelect, onDelete }) {
       const { data, error } = await supabase
         .from('summaries')
         .select(
-          'id, file_name, file_type, word_count, depth, format, focus, summary_text, chunks_processed, actual_cost, created_at, document_path',
+          'id, file_name, file_type, word_count, depth, focus, summary_text, chunks_processed, actual_cost, created_at, document_path',
         )
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })

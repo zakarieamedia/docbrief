@@ -1,11 +1,9 @@
 import { useState } from 'react'
 
 const DEPTHS = ['Brief', 'Standard', 'Deep', 'Executive']
-const FORMATS = ['Structured Sections', 'Bullet Points', 'Narrative Prose', 'Q&A']
 
 export default function SummaryControls({ fileLoaded, processing, onAnalyze }) {
   const [depth, setDepth] = useState('Standard')
-  const [format, setFormat] = useState('Structured Sections')
   const [focus, setFocus] = useState('')
 
   return (
@@ -33,24 +31,6 @@ export default function SummaryControls({ fileLoaded, processing, onAnalyze }) {
           </select>
         </div>
 
-        <div>
-          <label htmlFor="format" className="block text-sm font-medium text-ink mb-1">
-            Output Format
-          </label>
-          <select
-            id="format"
-            value={format}
-            onChange={(e) => setFormat(e.target.value)}
-            className="w-full rounded-lg border border-hair bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy"
-          >
-            {FORMATS.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <div className="sm:col-span-2">
           <label htmlFor="focus" className="block text-sm font-medium text-ink mb-1">
             Focus Areas <span className="text-faint font-normal">(optional)</span>
@@ -67,7 +47,7 @@ export default function SummaryControls({ fileLoaded, processing, onAnalyze }) {
       </div>
 
       <button
-        onClick={() => onAnalyze({ depth, format, focus })}
+        onClick={() => onAnalyze({ depth, focus })}
         disabled={!fileLoaded || processing}
         className="mt-4 w-full sm:w-auto rounded-lg bg-navy hover:bg-navy-dark text-white font-medium px-6 py-2.5 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >

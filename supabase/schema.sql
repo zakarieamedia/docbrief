@@ -6,7 +6,7 @@ create table summaries (
   file_type text,
   word_count int,
   depth text,
-  format text,
+  format text, -- legacy: the Output Format control was removed 2026-07; new rows leave this null
   focus text,
   summary_text text,
   chunks_processed int,
