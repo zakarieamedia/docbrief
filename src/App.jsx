@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase'
 import { summarizeDocument, estimateAnalysis } from './lib/claude'
 import { saveAnalysisToHistory } from './lib/history'
 import { verifySummaryAgainstText } from './lib/verify'
+import { humanizeError } from './lib/messages'
 import Auth from './components/Auth'
 import Sidebar from './components/Sidebar'
 import Uploader from './components/Uploader'
@@ -89,7 +90,7 @@ export default function App() {
       )
       setHistoryVersion((v) => v + 1)
     } catch (err) {
-      setAutoSave({ resultId: id, status: 'error', message: err.message })
+      setAutoSave({ resultId: id, status: 'error', message: humanizeError(err, 'save') })
     }
   }
 
@@ -218,7 +219,7 @@ export default function App() {
         doc.pages ?? null,
       )
     } catch (err) {
-      setError(err.message || 'Summarization failed.')
+      setError(humanizeError(err, 'analysis'))
     } finally {
       setProcessing(false)
       setProgress(null)
@@ -302,7 +303,7 @@ export default function App() {
                 />
               </div>
               <p className="mt-2 text-xs text-faint">
-                Chunk {progress.current} of {progress.total}
+                This usually takes about a minute — you can leave this page open.
               </p>
             </div>
           )}

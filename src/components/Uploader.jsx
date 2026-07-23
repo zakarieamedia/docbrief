@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
+import { friendlyError, humanizeUploadError } from '../lib/messages'
 import mammoth from 'mammoth'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -56,7 +57,9 @@ export default function Uploader({ doc, onExtracted, disabled }) {
     if (!file) return
     const ext = '.' + file.name.split('.').pop().toLowerCase()
     if (!ACCEPTED.includes(ext)) {
-      setError(`Unsupported file type. Accepted: ${ACCEPTED.join(', ')}`)
+      setError(
+        'DocBrief can\u2019t read this type of file yet. It accepts PDF, Word (.docx), and plain text (.txt, .csv, .md).',
+      )
       return
     }
     setError('')
@@ -74,7 +77,11 @@ export default function Uploader({ doc, onExtracted, disabled }) {
       else text = await extractPlainText(file)
 
       if (!text?.trim()) {
-        throw new Error('No extractable text found in this file.')
+        throw friendlyError(
+          ext === '.pdf'
+            ? 'No readable text was found in this PDF. If it\u2019s a scanned copy (photographed or photocopied pages), the text can\u2019t be read yet \u2014 upload a version that was saved directly from a computer instead.'
+            : 'No readable text was found in this file.',
+        )
       }
       onExtracted({
         name: file.name,
@@ -85,7 +92,7 @@ export default function Uploader({ doc, onExtracted, disabled }) {
         pages,
       })
     } catch (err) {
-      setError(err.message || 'Text extraction failed.')
+      setError(humanizeUploadError(err))
       onExtracted(null)
     } finally {
       setExtracting(false)

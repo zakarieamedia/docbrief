@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { humanizeError } from '../lib/messages'
 
 export default function Auth() {
   const [mode, setMode] = useState('login')
@@ -27,7 +28,7 @@ export default function Auth() {
         }
       }
     } catch (err) {
-      setError(err.message || 'Something went wrong.')
+      setError(humanizeError(err, 'auth'))
     } finally {
       setLoading(false)
     }
@@ -46,7 +47,7 @@ export default function Auth() {
       if (error) throw error
       setNotice('Check your email for a password reset link.')
     } catch (err) {
-      setError(err.message || 'Could not send the reset email.')
+      setError(humanizeError(err, 'auth'))
     } finally {
       setLoading(false)
     }

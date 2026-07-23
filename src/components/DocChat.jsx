@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { askQuestion } from '../lib/claude'
+import { humanizeError } from '../lib/messages'
 import Markdown from './Markdown'
 import PagePointer from './PagePointer'
 
@@ -69,7 +70,7 @@ export default function DocChat({
       )
       setMessages((prev) => [...prev, { role: 'assistant', content: answer, citation }])
     } catch (err) {
-      setError(err.message || 'Could not get an answer. Please try again.')
+      setError(humanizeError(err, 'chat'))
     } finally {
       setLoading(false)
     }

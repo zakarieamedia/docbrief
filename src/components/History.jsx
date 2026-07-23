@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import ConfirmModal from './ConfirmModal'
+import { humanizeError } from '../lib/messages'
 
 // New summaries store structured JSON in summary_text; older rows store
 // markdown/plain text. Show a human-readable preview for both.
@@ -41,7 +42,7 @@ export default function History({ session, version, onSelect, onDelete }) {
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
       if (cancelled) return
-      if (error) setError(error.message)
+      if (error) setError(humanizeError(error, 'history'))
       else setItems(data || [])
       setLoading(false)
     }
@@ -60,10 +61,12 @@ export default function History({ session, version, onSelect, onDelete }) {
       .eq('id', item.id)
       .select()
     if (error) {
-      setError(error.message)
+      setError(humanizeError(error, 'history'))
     } else if (!data?.length) {
       // RLS silently filters rows the policy doesn't allow deleting.
-      setError('Delete was blocked by row-level security. Apply the policies in supabase/schema.sql to the database.')
+      setError(
+        'This summary couldn’t be deleted due to a permissions problem. Log out and back in, then try again.',
+      )
     } else {
       // Best-effort cleanup of the stored document text — the row is already
       // gone, so a failure here only leaves an orphaned (private) file.

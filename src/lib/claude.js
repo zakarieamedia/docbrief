@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { CHUNK_SYSTEM_PROMPT, buildFinalSystemPrompt, narrativeWordTarget } from './prompts'
+import { friendlyError } from './messages'
 
 // Claude calls go through the serverless proxy (api/summarize.js) so the
 // Anthropic API key never reaches the browser. The proxy only accepts requests
@@ -129,7 +130,7 @@ function parseSummary(text) {
   const start = text.indexOf('{')
   const end = text.lastIndexOf('}')
   if (start === -1 || end <= start) {
-    throw new Error('The model did not return a structured summary. Please try again.')
+    throw friendlyError('The analysis came back in an unexpected shape. Please try again.')
   }
   const slice = text.slice(start, end + 1)
   let raw
@@ -139,7 +140,7 @@ function parseSummary(text) {
     try {
       raw = JSON.parse(repairJson(slice))
     } catch {
-      throw new Error('Could not parse the structured summary. Please try again.')
+      throw friendlyError('The analysis came back garbled. Please try again.')
     }
   }
   const str = (v) => (typeof v === 'string' ? v : '')
@@ -174,7 +175,7 @@ async function postToProxy(messages, system, maxTokens, model) {
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData.session?.access_token
   if (!accessToken) {
-    throw new Error('Your session has expired. Please log in again.')
+    throw friendlyError('Your session has timed out. Please log out and log back in.')
   }
 
   const response = await fetch(API_URL, {
@@ -221,7 +222,7 @@ async function callClaude(system, userContent, maxTokens = MAX_TOKENS) {
     SUMMARY_MODEL,
   )
   if (result.stopReason === 'refusal') {
-    throw new Error('The model declined to summarize this content.')
+    throw friendlyError('The analysis service declined to summarize this content.')
   }
   return result
 }
@@ -268,7 +269,7 @@ export async function summarizeDocument(text, { depth, focus }, onProgress) {
   // Single-chunk documents skip the map-reduce pass — summarize the full text
   // directly into the final structured format.
   if (total === 1) {
-    onProgress?.({ current: 1, total: 1, percent: 0, stage: 'Summarizing document' })
+    onProgress?.({ current: 1, total: 1, percent: 0, stage: 'Reading your document and writing the brief…' })
     const { text: response, usage, stopReason } = await callClaude(
       finalSystemPrompt,
       `${focusLine}Summarize this document:\n\n${chunks[0]}`,
@@ -276,7 +277,7 @@ export async function summarizeDocument(text, { depth, focus }, onProgress) {
     )
     track(usage)
     if (stopReason === 'max_tokens') {
-      throw new Error('The summary exceeded the response limit and was cut off. Please try again.')
+      throw friendlyError('The summary came back incomplete. Please try again.')
     }
     onProgress?.({ current: 1, total: 1, percent: 100, stage: 'Done' })
     return { summary: parseSummary(response), chunksProcessed: 1, usage: totalUsage() }
@@ -288,7 +289,7 @@ export async function summarizeDocument(text, { depth, focus }, onProgress) {
       current: i + 1,
       total,
       percent: Math.round((i / total) * 100),
-      stage: `Analyzing chunk ${i + 1} of ${total}`,
+      stage: `Reading section ${i + 1} of ${total}…`,
     })
     const { text: summary, usage } = await callClaude(
       CHUNK_SYSTEM_PROMPT,
@@ -302,7 +303,7 @@ export async function summarizeDocument(text, { depth, focus }, onProgress) {
     current: total,
     total,
     percent: 95,
-    stage: 'Consolidating final summary',
+    stage: 'Writing the final brief…',
   })
   const { text: response, usage, stopReason } = await callClaude(
     finalSystemPrompt,
@@ -313,7 +314,7 @@ export async function summarizeDocument(text, { depth, focus }, onProgress) {
   )
   track(usage)
   if (stopReason === 'max_tokens') {
-    throw new Error('The summary exceeded the response limit and was cut off. Please try again.')
+    throw friendlyError('The summary came back incomplete. Please try again.')
   }
 
   onProgress?.({ current: total, total, percent: 100, stage: 'Done' })
@@ -373,11 +374,20 @@ function parseAnswer(text) {
  * conversationHistory is the prior turns as [{ role, content }] (excluding the
  * new question). Returns { answer, citation, usage }.
  */
+const MAX_CHAT_DOC_CHARS = 700000 // ~175k tokens; the Q&A model holds ~200k total
+
 export async function askQuestion(question, documentText, conversationHistory = [], pages = null) {
   const sourceText =
     Array.isArray(pages) && pages.length
       ? pages.map((p, i) => `[Page ${i + 1}]\n${p}`).join('\n\n')
       : documentText
+
+  if ((sourceText?.length ?? 0) > MAX_CHAT_DOC_CHARS) {
+    throw friendlyError(
+      'This document is too long for follow-up questions — roughly 250 pages is the ' +
+        'limit. The summary tabs still cover the whole document.',
+    )
+  }
 
   const history = conversationHistory.map((m) => ({ role: m.role, content: m.content }))
   const messages = [...history, { role: 'user', content: question }]
@@ -402,7 +412,7 @@ export async function askQuestion(question, documentText, conversationHistory = 
     CHAT_MODEL,
   )
   if (stopReason === 'refusal') {
-    throw new Error('The model declined to answer that question.')
+    throw friendlyError('The service declined to answer that question.')
   }
   return { ...parseAnswer(text), usage }
 }
