@@ -11,10 +11,15 @@
 //   false      → amber warning chip + "not found" — the model cited a place
 //                that couldn't be located in the text; treat with caution
 //   undefined  → normal chip, no claim (summaries saved before verification)
-export default function PagePointer({ citation, verified, className = '' }) {
+// `page` (also stamped by lib/verify.js): a COMPUTED page number — where the
+// verified quote actually sits in the PDF — never a model claim. Shown as
+// "· p. N" after the label, or alone when there's no section label.
+export default function PagePointer({ citation, verified, page, className = '' }) {
   const label = typeof citation === 'string' ? citation.trim() : ''
-  if (!label) return null
+  const pageNum = Number.isInteger(page) && page > 0 ? page : null
+  if (!label && !pageNum) return null
   const flagged = verified === false
+  const display = label ? (pageNum ? `${label} · p. ${pageNum}` : label) : `p. ${pageNum}`
   return (
     <span
       className={`inline-flex max-w-full items-start gap-1 rounded-[3px] border px-1.5 py-0.5 text-[11px] font-semibold leading-tight ${
@@ -24,15 +29,15 @@ export default function PagePointer({ citation, verified, className = '' }) {
       } ${className}`}
       title={
         flagged
-          ? `This reference couldn't be found in the document — double-check it before relying on it: ${label}`
-          : `Verify in the source: ${label}`
+          ? `This reference couldn't be found in the document — double-check it before relying on it: ${display}`
+          : `Verify in the source: ${display}`
       }
     >
       <svg viewBox="0 0 24 24" className="mt-px h-3 w-3 shrink-0" fill="currentColor" aria-hidden="true">
         <path d="M6 2a2 2 0 0 0-2 2v17.5a.5.5 0 0 0 .79.41L12 17l7.21 4.91a.5.5 0 0 0 .79-.41V4a2 2 0 0 0-2-2H6Z" />
       </svg>
       <span className="min-w-0 break-words">
-        {label}
+        {display}
         {flagged && <span className="font-normal italic"> · not found in document</span>}
       </span>
     </span>

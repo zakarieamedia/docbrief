@@ -216,9 +216,12 @@ export function buildBriefPdf(summary, result) {
     if (risk.title && risk.description) {
       para(stripMd(risk.description), { size: 10, after: 4 })
     }
-    if (risk.source) {
+    if (risk.source || risk.sourcePage) {
       const flagged = risk.sourceVerified === false
-      para(`Found in: ${risk.source}${flagged ? ' — not found in document, verify before relying on it' : ''}`, {
+      const where = [risk.source, risk.sourcePage ? `p. ${risk.sourcePage}` : '']
+        .filter(Boolean)
+        .join(', ')
+      para(`Found in: ${where}${flagged ? ' — not found in document, verify before relying on it' : ''}`, {
         size: 8.5,
         color: flagged ? C.amberInk : C.faint,
         after: 4,

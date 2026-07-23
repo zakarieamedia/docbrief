@@ -58,9 +58,10 @@ function summaryToText(summary, fileName) {
         `  ${r.quoteVerified === false ? 'From the analysis (wording not verified)' : 'Exact wording'}: “${r.sourceQuote}”`,
       )
     }
-    if (r.source) {
+    if (r.source || r.sourcePage) {
+      const where = [r.source, r.sourcePage ? `p. ${r.sourcePage}` : ''].filter(Boolean).join(', ')
       out.push(
-        `  Found in: ${r.source}${r.sourceVerified === false ? ' — not found in document' : ''}`,
+        `  Found in: ${where}${r.sourceVerified === false ? ' — not found in document' : ''}`,
       )
     }
   }

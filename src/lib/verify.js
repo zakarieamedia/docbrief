@@ -81,15 +81,53 @@ export function sourceAppearsIn(source, docNorm) {
 }
 
 /**
+ * Locate the single page whose text contains the (already-verified) quote's
+ * first excerpt. Adjacent page pairs are checked for quotes that straddle a
+ * page break (cite the first page of the pair). Returns a 1-based page
+ * number, or null when zero or MULTIPLE locations match — an ambiguous page
+ * is never reported. This is a COMPUTED page: it states where the verbatim
+ * words actually sit, not where the model claims they do.
+ */
+export function locateQuotePage(quote, pagesNorm) {
+  if (!Array.isArray(pagesNorm) || !pagesNorm.length) return null
+  const excerpt = String(quote ?? '')
+    .split(ELLIPSIS_SPLIT)
+    .map(normalizeForMatch)
+    .filter(Boolean)[0]
+  if (!excerpt) return null
+
+  const single = []
+  pagesNorm.forEach((p, i) => {
+    if (p.includes(excerpt)) single.push(i + 1)
+  })
+  if (single.length === 1) return single[0]
+  if (single.length > 1) return null
+
+  const pairs = []
+  for (let i = 0; i < pagesNorm.length - 1; i++) {
+    if (`${pagesNorm[i]} ${pagesNorm[i + 1]}`.includes(excerpt)) pairs.push(i + 1)
+  }
+  return pairs.length === 1 ? pairs[0] : null
+}
+
+/**
  * Stamp verification verdicts onto a structured summary:
  * - every risk with a sourceQuote gets `quoteVerified` (strict verbatim)
  * - every risk/obligation/date with a source gets `sourceVerified` (loose)
- * Rows without the field are left unstamped (undefined = never checked,
+ * - risks whose quote VERIFIED get `sourcePage` computed from where the
+ *   quote actually lives in the per-page text (PDFs only; unique match
+ *   required). Deliberately NOT attempted from section references —
+ *   a document citing "Section 21" once in cross-reference would pin the
+ *   wrong page with full confidence. Quote location is ground truth;
+ *   everything else stays section-only.
+ * Rows without a field are left unstamped (undefined = never checked,
  * e.g. summaries saved before this feature existed).
  */
-export function verifySummaryAgainstText(summary, documentText) {
+export function verifySummaryAgainstText(summary, documentText, pages = null) {
   if (!summary || !documentText) return summary
   const docNorm = normalizeForMatch(documentText)
+  const pagesNorm =
+    Array.isArray(pages) && pages.length ? pages.map((p) => normalizeForMatch(p)) : null
 
   const stampSource = (row) =>
     typeof row?.source === 'string' && row.source.trim()
@@ -101,7 +139,12 @@ export function verifySummaryAgainstText(summary, documentText) {
     risksAndFlags: (summary.risksAndFlags ?? []).map((r) => {
       let out = stampSource(r)
       if (typeof r?.sourceQuote === 'string' && r.sourceQuote.trim()) {
-        out = { ...out, quoteVerified: quoteAppearsIn(r.sourceQuote, docNorm) }
+        const quoteVerified = quoteAppearsIn(r.sourceQuote, docNorm)
+        out = { ...out, quoteVerified }
+        if (quoteVerified && pagesNorm) {
+          const page = locateQuotePage(r.sourceQuote, pagesNorm)
+          if (page) out = { ...out, sourcePage: page }
+        }
       }
       return out
     }),

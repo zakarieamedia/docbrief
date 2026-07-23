@@ -183,7 +183,13 @@ function RiskCard({ risk, onOpen }) {
         </p>
       )}
       <span className="mt-auto pt-3">
-        {risk.source && <PagePointer citation={risk.source} verified={risk.sourceVerified} />}
+        {(risk.source || risk.sourcePage) && (
+          <PagePointer
+            citation={risk.source}
+            verified={risk.sourceVerified}
+            page={risk.sourcePage}
+          />
+        )}
       </span>
     </button>
   )
@@ -207,7 +213,13 @@ function RiskDetail({ risk, onBack }) {
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <SeverityBadge severity={risk.severity} />
-        {risk.source && <PagePointer citation={risk.source} verified={risk.sourceVerified} />}
+        {(risk.source || risk.sourcePage) && (
+          <PagePointer
+            citation={risk.source}
+            verified={risk.sourceVerified}
+            page={risk.sourcePage}
+          />
+        )}
       </div>
 
       <h3 className="mt-3 break-words font-serif text-2xl font-bold leading-tight text-ink">
@@ -255,10 +267,14 @@ function RiskDetail({ risk, onBack }) {
             <blockquote className="mt-2 break-words font-serif text-[16px] italic leading-relaxed text-ink">
               &ldquo;{risk.sourceQuote}&rdquo;
             </blockquote>
-            {risk.source && (
+            {(risk.source || risk.sourcePage) && (
               <div className="mt-3 flex items-center gap-1.5">
                 <span className="text-[11px] font-medium text-faint">Found in:</span>
-                <PagePointer citation={risk.source} verified={risk.sourceVerified} />
+                <PagePointer
+                  citation={risk.source}
+                  verified={risk.sourceVerified}
+                  page={risk.sourcePage}
+                />
               </div>
             )}
           </figure>

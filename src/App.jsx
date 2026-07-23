@@ -187,7 +187,7 @@ export default function App() {
       // text — they persist with the saved summary. Extraction warnings
       // (scanned pages, table pages) ride along so the Overview shows them
       // now and on every reopen.
-      const verified = verifySummaryAgainstText(rawSummary, doc.text)
+      const verified = verifySummaryAgainstText(rawSummary, doc.text, doc.pages ?? null)
       const summary = doc.warnings?.length
         ? { ...verified, extractionNotes: doc.warnings.map((w) => w.message) }
         : verified
