@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { jsPDF } from 'jspdf'
-import { supabase } from '../lib/supabase'
 import { sanitizeSummary } from '../lib/claude'
 import Markdown from './Markdown'
 import DocChat from './DocChat'
@@ -352,14 +351,14 @@ function Sheet({ children }) {
 export default function ResultView({
   result,
   session,
-  onSaved,
   activeTab,
   documentText,
   documentPages,
   documentTextStatus,
+  saveStatus,
+  saveError,
+  onRetrySave,
 }) {
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(Boolean(result.saved))
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
 
@@ -367,55 +366,6 @@ export default function ResultView({
   const plainText = summary
     ? summaryToText(summary, result.fileName)
     : String(result.summary ?? '')
-
-  const handleSave = async () => {
-    setSaving(true)
-    setError('')
-    try {
-      // Persist the extracted document text (and per-page array for PDFs) to
-      // the private `documents` Storage bucket so Q&A still works when this
-      // summary is reopened from history. The path starts with the user's id
-      // — the storage RLS policies key on that first path segment.
-      let documentPath = null
-      if (documentText) {
-        documentPath = `${session.user.id}/${crypto.randomUUID?.() ?? Date.now()}.json`
-        const payload = new Blob(
-          [JSON.stringify({ text: documentText, pages: documentPages ?? null })],
-          { type: 'application/json' },
-        )
-        const { error: uploadError } = await supabase.storage
-          .from('documents')
-          .upload(documentPath, payload, { contentType: 'application/json' })
-        if (uploadError) {
-          throw new Error(
-            `Could not store the document text for Q&A: ${uploadError.message}`,
-          )
-        }
-      }
-
-      const { error } = await supabase.from('summaries').insert({
-        user_id: session.user.id,
-        user_email: session.user.email,
-        file_name: result.fileName,
-        file_type: result.fileType,
-        word_count: result.wordCount,
-        depth: result.depth,
-        format: result.format,
-        focus: result.focus || null,
-        summary_text: summary ? JSON.stringify(summary) : plainText,
-        chunks_processed: result.chunksProcessed ?? null,
-        actual_cost: result.actualCost ?? null,
-        document_path: documentPath,
-      })
-      if (error) throw error
-      setSaved(true)
-      onSaved?.(documentPath)
-    } catch (err) {
-      setError(err.message || 'Could not save to history.')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const handleCopy = async () => {
     try {
@@ -440,9 +390,14 @@ export default function ResultView({
 
   return (
     <div className={chatActive ? 'flex h-full flex-col' : 'space-y-4'}>
-      {/* Action bar */}
+      {/* Action bar — saving is automatic; only its status shows here. */}
       {!chatActive && (
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {(saveStatus === 'saving' || saveStatus === 'saved' || result.saved) && (
+            <span className="text-xs text-faint" aria-live="polite">
+              {saveStatus === 'saving' ? 'Saving to history…' : 'Saved ✓'}
+            </span>
+          )}
           <button
             onClick={handleDownload}
             className="rounded-lg bg-navy hover:bg-navy-dark text-white text-sm font-medium px-4 py-2 transition-colors"
@@ -450,17 +405,26 @@ export default function ResultView({
             Download PDF
           </button>
           <button
-            onClick={handleSave}
-            disabled={saving || saved}
-            className="rounded-lg border border-navy text-navy hover:bg-navy-pale text-sm font-medium px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saved ? 'Saved' : saving ? 'Saving…' : 'Save to History'}
-          </button>
-          <button
             onClick={handleCopy}
             className="rounded-lg border border-hair text-ink hover:bg-black/[0.03] text-sm font-medium px-4 py-2 transition-colors"
           >
             {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+      )}
+
+      {/* Auto-save failure: loud, honest, retryable — never silent. */}
+      {!chatActive && saveStatus === 'error' && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-risk-high/25 bg-risk-high/[0.08] px-4 py-3 text-sm text-risk-high-ink">
+          <span className="min-w-0 break-words">
+            This analysis couldn&rsquo;t be saved to History
+            {saveError ? `: ${saveError}` : '.'}
+          </span>
+          <button
+            onClick={onRetrySave}
+            className="rounded-lg bg-navy px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-navy-dark"
+          >
+            Retry save
           </button>
         </div>
       )}

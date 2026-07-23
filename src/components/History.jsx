@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import ConfirmModal from './ConfirmModal'
 
 // New summaries store structured JSON in summary_text; older rows store
 // markdown/plain text. Show a human-readable preview for both.
@@ -20,6 +21,8 @@ export default function History({ session, version, onSelect, onDelete }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // Row awaiting delete confirmation in the modal; null = no modal.
+  const [pendingDelete, setPendingDelete] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -48,11 +51,8 @@ export default function History({ session, version, onSelect, onDelete }) {
     }
   }, [session.user.id, version])
 
-  const handleDelete = async (e, item) => {
-    e.stopPropagation()
-    if (!window.confirm(`Delete the summary of "${item.file_name}"? This cannot be undone.`)) {
-      return
-    }
+  // Runs after the user confirms in the modal.
+  const performDelete = async (item) => {
     setError('')
     const { data, error } = await supabase
       .from('summaries')
@@ -132,9 +132,12 @@ export default function History({ session, version, onSelect, onDelete }) {
                 </p>
               </div>
               <button
-                onClick={(e) => handleDelete(e, item)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setPendingDelete(item)
+                }}
                 title="Delete"
-                className="shrink-0 text-faint/50 hover:text-risk-high opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1"
+                className="shrink-0 p-1 text-faint/60 transition-colors hover:text-risk-high"
               >
                 <svg
                   className="h-4 w-4"
@@ -155,6 +158,26 @@ export default function History({ session, version, onSelect, onDelete }) {
           )
         })}
       </div>
+
+      {pendingDelete && (
+        <ConfirmModal
+          title="Delete this summary?"
+          confirmLabel="Delete"
+          danger
+          onConfirm={() => {
+            const item = pendingDelete
+            setPendingDelete(null)
+            performDelete(item)
+          }}
+          onCancel={() => setPendingDelete(null)}
+        >
+          <p className="min-w-0 break-words font-medium text-ink">{pendingDelete.file_name}</p>
+          <p className="mt-2 text-faint">
+            This permanently removes the summary and its stored document text. It cannot be
+            undone.
+          </p>
+        </ConfirmModal>
+      )}
     </div>
   )
 }

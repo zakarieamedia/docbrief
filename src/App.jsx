@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { summarizeDocument, estimateAnalysis } from './lib/claude'
+import { saveAnalysisToHistory } from './lib/history'
 import Auth from './components/Auth'
 import Sidebar from './components/Sidebar'
 import Uploader from './components/Uploader'
 import SummaryControls from './components/SummaryControls'
-import ConfirmModal from './components/ConfirmModal'
+import ConfirmModal, { ModalRow } from './components/ConfirmModal'
 import ResultView, { toStructuredSummary } from './components/ResultView'
 import History from './components/History'
 import Admin from './pages/Admin'
@@ -64,6 +65,33 @@ export default function App() {
   const [docText, setDocText] = useState(null) // { resultId, status, text?, pages? }
   const docFetchSeq = useRef(0)
 
+  // Auto-save status for the open analysis, keyed by result id:
+  // { resultId, status: 'saving' | 'saved' | 'error', message? }.
+  const [autoSave, setAutoSave] = useState(null)
+
+  // Every completed analysis is saved to history automatically — Frank should
+  // never lose one by closing the tab. Failures surface as a retryable
+  // warning in the results view, never silently.
+  const persistAnalysis = async (id, resultObj, text, pages) => {
+    setAutoSave({ resultId: id, status: 'saving' })
+    try {
+      const documentPath = await saveAnalysisToHistory({
+        session,
+        result: resultObj,
+        documentText: text,
+        documentPages: pages,
+      })
+      setAutoSave({ resultId: id, status: 'saved' })
+      // Mark saved + remember where the text lives so a refresh restores Q&A.
+      setResult((prev) =>
+        prev && prev.id === id ? { ...prev, saved: true, document_path: documentPath } : prev,
+      )
+      setHistoryVersion((v) => v + 1)
+    } catch (err) {
+      setAutoSave({ resultId: id, status: 'error', message: err.message })
+    }
+  }
+
   const loadStoredDocument = async (resultId, path) => {
     const seq = ++docFetchSeq.current
     setDocText({ resultId, status: 'loading' })
@@ -93,6 +121,7 @@ export default function App() {
     setResult(null)
     setDoc(null)
     setDocText(null)
+    setAutoSave(null)
     docFetchSeq.current++ // invalidate any in-flight storage fetch
     setError('')
     setProgress(null)
@@ -145,6 +174,7 @@ export default function App() {
     setProcessing(true)
     setError('')
     setResult(null)
+    setAutoSave(null)
     try {
       const { summary, chunksProcessed, usage } = await summarizeDocument(
         doc.text,
@@ -168,6 +198,23 @@ export default function App() {
       docFetchSeq.current++
       setDocText({ resultId: id, status: 'ready', text: doc.text, pages: doc.pages ?? null })
       setNav({ view: 'doc', tab: 'overview' })
+      // Fire-and-track: navigation isn't blocked on the save.
+      persistAnalysis(
+        id,
+        {
+          summary,
+          wordCount: doc.wordCount,
+          chunksProcessed,
+          actualCost: usage?.actualCost ?? null,
+          depth,
+          format,
+          focus,
+          fileName: doc.name,
+          fileType: doc.type,
+        },
+        doc.text,
+        doc.pages ?? null,
+      )
     } catch (err) {
       setError(err.message || 'Summarization failed.')
     } finally {
@@ -287,6 +334,7 @@ export default function App() {
                 saved: true,
               })
               setError('')
+              setAutoSave(null)
               // Rows saved with a stored document get their text back for
               // Q&A; older rows show the honest re-upload fallback.
               if (row.document_path) loadStoredDocument(row.id, row.document_path)
@@ -313,12 +361,16 @@ export default function App() {
             key={result.id ?? 'rehydrated'}
             result={result}
             session={session}
-            onSaved={(documentPath) => {
-              setHistoryVersion((v) => v + 1)
-              // Remember where the text lives so a refresh can restore Q&A.
-              if (documentPath)
-                setResult((prev) => (prev ? { ...prev, document_path: documentPath } : prev))
-            }}
+            saveStatus={autoSave?.resultId === result.id ? autoSave.status : undefined}
+            saveError={autoSave?.resultId === result.id ? autoSave.message : undefined}
+            onRetrySave={() =>
+              persistAnalysis(
+                result.id,
+                result,
+                activeDocText?.status === 'ready' ? activeDocText.text : undefined,
+                activeDocText?.status === 'ready' ? (activeDocText.pages ?? null) : null,
+              )
+            }
             activeTab={activeTab}
             documentText={activeDocText?.status === 'ready' ? activeDocText.text : undefined}
             documentPages={
@@ -361,11 +413,21 @@ export default function App() {
 
       {pendingAnalysis && doc && (
         <ConfirmModal
-          doc={doc}
-          estimate={estimateAnalysis(doc.text)}
+          title="Confirm Analysis"
+          confirmLabel="Proceed"
           onConfirm={handleConfirmAnalysis}
           onCancel={() => setPendingAnalysis(null)}
-        />
+        >
+          <dl className="space-y-3">
+            <ModalRow label="Document" value={doc.name} />
+            <ModalRow label="Word Count" value={doc.wordCount.toLocaleString()} />
+            <ModalRow label="Chunks" value={estimateAnalysis(doc.text).chunks} />
+            <ModalRow
+              label="Estimated API Cost"
+              value={`$${estimateAnalysis(doc.text).estimatedCost.toFixed(3)}`}
+            />
+          </dl>
+        </ConfirmModal>
       )}
     </BrowserRouter>
   )
