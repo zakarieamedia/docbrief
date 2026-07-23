@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { jsPDF } from 'jspdf'
 import { sanitizeSummary } from '../lib/claude'
+import { downloadBriefPdf } from '../lib/briefPdf'
 import Markdown from './Markdown'
 import DocChat from './DocChat'
 import {
@@ -12,12 +13,6 @@ import {
 } from './SummaryView'
 
 const NAVY = [31, 56, 100] // #1F3864
-
-const RISK_PDF_COLORS = {
-  high: [220, 38, 38],
-  medium: [202, 138, 4],
-  low: [107, 114, 128],
-}
 
 // Fresh results carry a structured summary object; rows reopened from history
 // carry summary_text — JSON for new saves, markdown/plain text for old ones.
@@ -40,240 +35,79 @@ export function toStructuredSummary(value) {
 }
 
 function summaryToText(summary, fileName) {
-  const section = (title, lines) => [
-    title.toUpperCase(),
-    ...(lines.length ? lines : ['None identified.']),
-    '',
-  ]
-  return [
+  const out = [
     summary.documentTitle || fileName,
     [summary.documentType, summary.preparedDate].filter(Boolean).join(' — '),
     '',
-    ...section('Document Overview', summary.overview ? [summary.overview] : []),
-    ...(summary.fullSummary ? section('Full Summary', [summary.fullSummary]) : []),
-    ...section(
-      'Key Parties',
-      (summary.parties ?? []).map((p) => `- ${p.name || '—'}: ${p.role || '—'}`),
-    ),
-    ...section(
-      'Financial Terms',
-      (summary.financialTerms ?? []).map(
-        (f) => `- ${f.item || '—'}: ${f.amount || '—'}${f.notes ? ` (${f.notes})` : ''}`,
-      ),
-    ),
-    ...section(
-      'Key Obligations',
-      (summary.keyObligations ?? []).map(
-        (o) => `- ${o.party || '—'}: ${o.obligation || '—'}${o.deadline ? ` — due ${o.deadline}` : ''}`,
-      ),
-    ),
-    ...section(
-      'Important Dates',
-      (summary.importantDates ?? []).map((d) => `- ${d.date || '—'}: ${d.event || '—'}`),
-    ),
-    ...section(
-      'Risks & Flags',
-      (summary.risksAndFlags ?? []).map(
-        (r) => `- [${String(r.severity || 'low').toUpperCase()}] ${r.description || '—'}`,
-      ),
-    ),
   ]
-    .join('\n')
-    .trim()
-}
+  if (summary.overview) out.push('DOCUMENT OVERVIEW', summary.overview, '')
+  for (const note of summary.extractionNotes ?? []) out.push(`NOTE: ${note}`, '')
+  if (summary.fullSummary) out.push('FULL SUMMARY', summary.fullSummary, '')
 
-function downloadStructuredPdf(summary, result) {
-  const doc = new jsPDF({ unit: 'pt', format: 'letter' })
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const pageHeight = doc.internal.pageSize.getHeight()
-  const margin = 56
-  const contentWidth = pageWidth - margin * 2
-  const footerY = pageHeight - 36
-  const lineHeight = 13
-  let y = margin
-
-  const ensureSpace = (needed) => {
-    if (y + needed > footerY - 16) {
-      doc.addPage()
-      y = margin
-    }
-  }
-
-  const sectionBar = (title) => {
-    ensureSpace(64) // never leave a bar orphaned at a page bottom
-    doc.setFillColor(...NAVY)
-    doc.rect(margin, y, contentWidth, 22, 'F')
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
-    doc.setTextColor(255)
-    doc.text(title.toUpperCase(), margin + 10, y + 14.5)
-    y += 32
-  }
-
-  const emptyRow = () => {
-    ensureSpace(22)
-    doc.setFont('helvetica', 'italic')
-    doc.setFontSize(10)
-    doc.setTextColor(130)
-    doc.text('None identified.', margin + 2, y + 10)
-    y += 26
-  }
-
-  const table = (columns, rows) => {
-    if (!rows?.length) {
-      emptyRow()
-      return
-    }
-    const pad = 6
-    ensureSpace(44)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
-    doc.setTextColor(120)
-    let x = margin
-    for (const col of columns) {
-      doc.text(col.label.toUpperCase(), x + pad, y + 8)
-      x += col.width
-    }
-    y += 14
-    doc.setDrawColor(190)
-    doc.setLineWidth(0.75)
-    doc.line(margin, y, margin + contentWidth, y)
-    y += 2
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    for (const row of rows) {
-      const cells = columns.map((col) =>
-        doc.splitTextToSize(String(row[col.key] ?? '') || '—', col.width - pad * 2),
-      )
-      const rowHeight = Math.max(...cells.map((c) => c.length)) * lineHeight + 9
-      ensureSpace(rowHeight)
-      doc.setTextColor(40)
-      let cx = margin
-      cells.forEach((cellLines, i) => {
-        doc.text(cellLines, cx + pad, y + 12)
-        cx += columns[i].width
-      })
-      y += rowHeight
-      doc.setDrawColor(228)
-      doc.setLineWidth(0.5)
-      doc.line(margin, y, margin + contentWidth, y)
-    }
-    y += 16
-  }
-
-  // Document header
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(19)
-  doc.setTextColor(...NAVY)
-  const titleLines = doc.splitTextToSize(
-    summary.documentTitle || result.fileName || 'Document Summary',
-    contentWidth,
-  )
-  doc.text(titleLines, margin, y + 14)
-  y += titleLines.length * 22 + 4
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
-  doc.setTextColor(110)
-  const meta = [
-    summary.documentType,
-    summary.preparedDate,
-    result.fileName ? `Source: ${result.fileName}` : '',
-  ]
-    .filter(Boolean)
-    .join('   ·   ')
-  doc.text(meta, margin, y + 8)
-  y += 16
-  doc.setDrawColor(...NAVY)
-  doc.setLineWidth(1.5)
-  doc.line(margin, y, margin + contentWidth, y)
-  y += 18
-
-  // Overview
-  sectionBar('Document Overview')
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
-  doc.setTextColor(40)
-  const overviewLines = doc.splitTextToSize(summary.overview || 'Not specified.', contentWidth - 4)
-  ensureSpace(overviewLines.length * lineHeight + 12)
-  doc.text(overviewLines, margin + 2, y + 10)
-  y += overviewLines.length * lineHeight + 18
-
-  sectionBar('Key Parties')
-  table(
-    [
-      { key: 'name', label: 'Name', width: 170 },
-      { key: 'role', label: 'Role', width: 330 },
-    ],
-    summary.parties,
-  )
-
-  sectionBar('Financial Terms')
-  table(
-    [
-      { key: 'item', label: 'Item', width: 170 },
-      { key: 'amount', label: 'Amount', width: 110 },
-      { key: 'notes', label: 'Notes', width: 220 },
-    ],
-    summary.financialTerms,
-  )
-
-  sectionBar('Key Obligations')
-  table(
-    [
-      { key: 'party', label: 'Party', width: 120 },
-      { key: 'obligation', label: 'Obligation', width: 260 },
-      { key: 'deadline', label: 'Deadline', width: 120 },
-    ],
-    summary.keyObligations,
-  )
-
-  sectionBar('Important Dates')
-  table(
-    [
-      { key: 'date', label: 'Date', width: 140 },
-      { key: 'event', label: 'Event', width: 360 },
-    ],
-    summary.importantDates,
-  )
-
-  sectionBar('Risks & Flags')
+  // Risks always appear — same rule as the tab.
+  out.push('RISKS & FLAGS')
   const risks = summary.risksAndFlags ?? []
-  if (!risks.length) emptyRow()
-  for (const risk of risks) {
-    const severity = String(risk.severity || 'low').toLowerCase()
-    const color = RISK_PDF_COLORS[severity] || RISK_PDF_COLORS.low
-    const badgeWidth = 54
-    const descLines = doc.splitTextToSize(risk.description || '—', contentWidth - badgeWidth - 16)
-    const blockHeight = Math.max(descLines.length * lineHeight, 15) + 10
-    ensureSpace(blockHeight)
-    doc.setFillColor(...color)
-    doc.roundedRect(margin, y + 1, badgeWidth, 14, 7, 7, 'F')
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7.5)
-    doc.setTextColor(255)
-    doc.text(severity.toUpperCase(), margin + badgeWidth / 2, y + 10.5, { align: 'center' })
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    doc.setTextColor(40)
-    doc.text(descLines, margin + badgeWidth + 12, y + 11)
-    y += blockHeight
+  if (!risks.length) out.push('None identified in this document.')
+  for (const r of risks) {
+    out.push(
+      `- [${String(r.severity || 'low').toUpperCase()}] ${r.title || r.description || '—'}`,
+    )
+    if (r.title && r.description) out.push(`  ${r.description}`)
+    if (r.sourceQuote) {
+      out.push(
+        `  ${r.quoteVerified === false ? 'From the analysis (wording not verified)' : 'Exact wording'}: “${r.sourceQuote}”`,
+      )
+    }
+    if (r.source) {
+      out.push(
+        `  Found in: ${r.source}${r.sourceVerified === false ? ' — not found in document' : ''}`,
+      )
+    }
+  }
+  out.push('')
+
+  // Reference sections only when the UI would show them.
+  const parties = summary.parties ?? []
+  const financials = summary.financialTerms ?? []
+  if (parties.length || financials.length) {
+    out.push('KEY PARTIES')
+    out.push(
+      ...(parties.length
+        ? parties.map((p) => `- ${p.name || '—'}: ${p.role || '—'}`)
+        : ['None identified in this document.']),
+    )
+    out.push('', 'FINANCIAL TERMS')
+    out.push(
+      ...(financials.length
+        ? financials.map(
+            (f) => `- ${f.item || '—'}: ${f.amount || '—'}${f.notes ? ` (${f.notes})` : ''}`,
+          )
+        : ['None identified in this document.']),
+    )
+    out.push('')
   }
 
-  // Footer on every page
-  const pageCount = doc.getNumberOfPages()
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.setTextColor(130)
-    doc.text('Confidential — Generated by DocBrief', margin, footerY + 14)
-    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, footerY + 14, { align: 'right' })
+  const obligations = summary.keyObligations ?? []
+  const dates = summary.importantDates ?? []
+  if (obligations.length || dates.length) {
+    out.push('KEY OBLIGATIONS')
+    out.push(
+      ...(obligations.length
+        ? obligations.map(
+            (o) =>
+              `- ${o.party || '—'}: ${o.obligation || '—'}${o.deadline ? ` — due ${o.deadline}` : ''}`,
+          )
+        : ['None identified in this document.']),
+    )
+    out.push('', 'IMPORTANT DATES')
+    out.push(
+      ...(dates.length
+        ? dates.map((d) => `- ${d.date || '—'}: ${d.event || '—'}`)
+        : ['None identified in this document.']),
+    )
   }
 
-  const baseName = (result.fileName || 'document').replace(/\.[^.]+$/, '')
-  doc.save(`${baseName}-summary.pdf`)
+  return out.join('\n').trim()
 }
 
 // Plain text-flow PDF for legacy string summaries reopened from history.
@@ -379,7 +213,7 @@ export default function ResultView({
   }
 
   const handleDownload = () => {
-    if (summary) downloadStructuredPdf(summary, result)
+    if (summary) downloadBriefPdf(summary, result)
     else downloadTextPdf(result)
   }
 
