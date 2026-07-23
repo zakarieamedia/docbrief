@@ -25,3 +25,4 @@ npm-debug.log*
 
 # Local screenshot harness (dev tool, not product code)
 .screenshot-harness
+.vercel
