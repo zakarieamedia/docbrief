@@ -280,6 +280,9 @@ export default function App() {
   // conversation scrolling internally) instead of scrolling the page.
   const chatActive = view === 'doc' && activeTab === 'chat'
 
+  // Estimate for the confirm modal (null when no modal is pending).
+  const analysisEstimate = pendingAnalysis && doc ? estimateAnalysis(doc.text) : null
+
   // Only hand the chat text that belongs to THIS result.
   const activeDocText =
     docText && result && docText.resultId === (result.id ?? 'rehydrated') ? docText : null
@@ -427,7 +430,7 @@ export default function App() {
         </div>
       </div>
 
-      {pendingAnalysis && doc && (
+      {pendingAnalysis && doc && analysisEstimate && (
         <ConfirmModal
           title="Confirm Analysis"
           confirmLabel="Proceed"
@@ -437,12 +440,27 @@ export default function App() {
           <dl className="space-y-3">
             <ModalRow label="Document" value={doc.name} />
             <ModalRow label="Word Count" value={doc.wordCount.toLocaleString()} />
-            <ModalRow label="Chunks" value={estimateAnalysis(doc.text).chunks} />
             <ModalRow
-              label="Estimated API Cost"
-              value={`$${estimateAnalysis(doc.text).estimatedCost.toFixed(3)}`}
+              label="Read as"
+              value={
+                analysisEstimate.chunks === 1
+                  ? 'One pass (full text)'
+                  : `${analysisEstimate.chunks} sections`
+              }
+            />
+            <ModalRow
+              label="Estimated Cost"
+              value={`$${analysisEstimate.estimatedCost.toFixed(3)}`}
             />
           </dl>
+          {analysisEstimate.chunks > 1 && (
+            <p className="mt-4 break-words rounded-md border border-amber/40 border-l-4 border-l-amber bg-amber/[0.06] px-3 py-2.5 text-sm leading-relaxed text-amber-ink">
+              This document is long enough to be read in {analysisEstimate.chunks} sections
+              and summarized from section notes rather than the full text at once. Details
+              can be missed — treat the brief as a starting point and verify critical items
+              against the original.
+            </p>
+          )}
         </ConfirmModal>
       )}
     </BrowserRouter>
