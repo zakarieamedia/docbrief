@@ -348,13 +348,16 @@ export function ObligationsDatesPanel({ summary }) {
         <SectionHead tone="faint">Important Dates</SectionHead>
         {dates.length ? (
           <ul className="mt-2 divide-y divide-hair">
+            {/* Date leads, on its own line — this column is scanned for WHEN.
+                Stacked rather than side-by-side because real documents
+                produce paragraph-length conditional dates. */}
             {dates.map((d, i) => (
-              <li key={i} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2.5 text-sm">
-                <span className="min-w-0 break-words">
-                  <span className="text-ink">{d.event || '—'}</span>
+              <li key={i} className="py-2.5 text-sm">
+                <p className="min-w-0 break-words font-semibold text-navy">{d.date || '—'}</p>
+                <p className="mt-0.5 min-w-0 break-words text-ink/80">
+                  {d.event || '—'}
                   {d.source && <PagePointer citation={d.source} className="ml-2 align-middle" />}
-                </span>
-                <span className="min-w-0 break-words font-semibold text-navy">{d.date || '—'}</span>
+                </p>
               </li>
             ))}
           </ul>
