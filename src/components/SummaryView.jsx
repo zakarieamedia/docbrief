@@ -168,7 +168,7 @@ function RiskCard({ risk, onOpen }) {
         </p>
       )}
       <span className="mt-auto pt-3">
-        {risk.source && <PagePointer citation={risk.source} />}
+        {risk.source && <PagePointer citation={risk.source} verified={risk.sourceVerified} />}
       </span>
     </button>
   )
@@ -192,7 +192,7 @@ function RiskDetail({ risk, onBack }) {
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <SeverityBadge severity={risk.severity} />
-        {risk.source && <PagePointer citation={risk.source} />}
+        {risk.source && <PagePointer citation={risk.source} verified={risk.sourceVerified} />}
       </div>
 
       <h3 className="mt-3 break-words font-serif text-2xl font-bold leading-tight text-ink">
@@ -202,22 +202,52 @@ function RiskDetail({ risk, onBack }) {
       <p className="mt-4 break-words text-[15px] leading-relaxed text-ink">{risk.description || '—'}</p>
 
       {risk.sourceQuote ? (
-        <figure
-          className={`mt-6 rounded-md border border-hair border-l-4 ${style.rail} bg-navy/[0.03] px-5 py-4`}
-        >
-          <figcaption className="text-[11px] font-semibold uppercase tracking-[0.15em] text-faint">
-            Exact wording from the document
-          </figcaption>
-          <blockquote className="mt-2 break-words font-serif text-[16px] italic leading-relaxed text-ink">
-            &ldquo;{risk.sourceQuote}&rdquo;
-          </blockquote>
-          {risk.source && (
-            <div className="mt-3 flex items-center gap-1.5">
-              <span className="text-[11px] font-medium text-faint">Found in:</span>
-              <PagePointer citation={risk.source} />
-            </div>
-          )}
-        </figure>
+        risk.quoteVerified === false ? (
+          /* The quote could NOT be matched to the document text — do not
+             present it under an "exact wording" label. Amber, downgraded,
+             explicit. */
+          <figure className="mt-6 rounded-md border border-amber/40 border-l-4 border-l-amber bg-amber/[0.06] px-5 py-4">
+            <figcaption className="text-[11px] font-semibold uppercase tracking-[0.15em] text-amber-ink">
+              From the analysis — wording not verified
+            </figcaption>
+            <blockquote className="mt-2 break-words font-serif text-[16px] italic leading-relaxed text-ink">
+              &ldquo;{risk.sourceQuote}&rdquo;
+            </blockquote>
+            <p className="mt-3 break-words text-xs leading-relaxed text-amber-ink">
+              This passage couldn&rsquo;t be matched word-for-word to the document text. Treat
+              it as a paraphrase and check the original
+              {risk.source ? (
+                <>
+                  {' '}
+                  at <PagePointer citation={risk.source} verified={risk.sourceVerified} className="align-middle" />
+                </>
+              ) : null}
+              .
+            </p>
+          </figure>
+        ) : (
+          <figure
+            className={`mt-6 rounded-md border border-hair border-l-4 ${style.rail} bg-navy/[0.03] px-5 py-4`}
+          >
+            <figcaption className="text-[11px] font-semibold uppercase tracking-[0.15em] text-faint">
+              Exact wording from the document
+              {risk.quoteVerified === true && (
+                <span className="ml-2 normal-case tracking-normal text-navy">
+                  ✓ verified against the document
+                </span>
+              )}
+            </figcaption>
+            <blockquote className="mt-2 break-words font-serif text-[16px] italic leading-relaxed text-ink">
+              &ldquo;{risk.sourceQuote}&rdquo;
+            </blockquote>
+            {risk.source && (
+              <div className="mt-3 flex items-center gap-1.5">
+                <span className="text-[11px] font-medium text-faint">Found in:</span>
+                <PagePointer citation={risk.source} verified={risk.sourceVerified} />
+              </div>
+            )}
+          </figure>
+        )
       ) : (
         <p className="mt-6 text-sm italic text-faint">
           The exact source wording wasn&rsquo;t captured for this risk
@@ -335,7 +365,9 @@ export function ObligationsDatesPanel({ summary }) {
                   )}
                 </div>
                 <p className="mt-0.5 break-words leading-relaxed text-ink/80">{o.obligation || '—'}</p>
-                {o.source && <PagePointer citation={o.source} className="mt-1.5" />}
+                {o.source && (
+                  <PagePointer citation={o.source} verified={o.sourceVerified} className="mt-1.5" />
+                )}
               </li>
             ))}
           </ul>
@@ -356,7 +388,9 @@ export function ObligationsDatesPanel({ summary }) {
                 <p className="min-w-0 break-words font-semibold text-navy">{d.date || '—'}</p>
                 <p className="mt-0.5 min-w-0 break-words text-ink/80">
                   {d.event || '—'}
-                  {d.source && <PagePointer citation={d.source} className="ml-2 align-middle" />}
+                  {d.source && (
+                    <PagePointer citation={d.source} verified={d.sourceVerified} className="ml-2 align-middle" />
+                  )}
                 </p>
               </li>
             ))}

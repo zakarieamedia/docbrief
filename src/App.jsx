@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { summarizeDocument, estimateAnalysis } from './lib/claude'
 import { saveAnalysisToHistory } from './lib/history'
+import { verifySummaryAgainstText } from './lib/verify'
 import Auth from './components/Auth'
 import Sidebar from './components/Sidebar'
 import Uploader from './components/Uploader'
@@ -176,11 +177,14 @@ export default function App() {
     setResult(null)
     setAutoSave(null)
     try {
-      const { summary, chunksProcessed, usage } = await summarizeDocument(
+      const { summary: rawSummary, chunksProcessed, usage } = await summarizeDocument(
         doc.text,
         { depth, focus },
         setProgress,
       )
+      // Stamp citation/quote verification verdicts while we hold the full
+      // text — they persist with the saved summary.
+      const summary = verifySummaryAgainstText(rawSummary, doc.text)
       const id = crypto.randomUUID?.() ?? String(Math.random())
       setResult({
         id,
