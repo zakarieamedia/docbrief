@@ -49,8 +49,10 @@ export const CHUNK_SYSTEM_PROMPT =
   'from this chunk in 3-4 bullet points maximum. Focus exclusively on: parties and ' +
   'their roles, key obligations, dollar amounts, dates, deadlines, and risks. When a ' +
   'bullet flags a risk, append the exact supporting passage from the text in ' +
-  'parentheses, verbatim, 25 words or fewer. Be extremely concise. No boilerplate, ' +
-  'no obvious statements, no lengthy explanations.\n' +
+  'parentheses, verbatim, 25 words or fewer. Table columns may be scrambled in the ' +
+  'extracted text — prefer amounts restated in prose and do not guess at table ' +
+  'figures. Be extremely concise. No boilerplate, no obvious statements, no lengthy ' +
+  'explanations.\n' +
   'Then add a line "SECTIONS:" followed by one line per major section, article, or ' +
   'exhibit in this chunk — its name exactly as titled, a dash, and a one-sentence ' +
   'plain-English gist of what it does. This outline is later used to write a ' +
@@ -94,7 +96,11 @@ export function buildFinalSystemPrompt({ depth = 'Standard', narrativeWords = 60
     'page number or a citation that is not supported by the source. Quote dates as the ' +
     'document states them; do not convert relative deadlines (e.g. "30 days after ' +
     'closing") into computed calendar dates. Never invent facts that are not present ' +
-    'in the source.\n\n' +
+    'in the source. Extracted text sometimes scrambles the row and column order of ' +
+    'tables: when an amount appears only inside table-like content, prefer the same ' +
+    'figure restated in prose elsewhere in the document, and if a table is the only ' +
+    'source and its figures look inconsistent, say the value needs verification ' +
+    'against the original rather than guessing.\n\n' +
     'For each risk: "title" is a 3-7 word plain-English name for the risk (e.g. ' +
     '“Personal guaranty has no cap”). "sourceQuote" is the exact passage from the ' +
     'document that evidences the risk, copied verbatim character-for-character — you ' +

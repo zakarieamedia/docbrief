@@ -100,6 +100,21 @@ export function OverviewPanel({ summary, fileName }) {
       <Markdown className="mt-6 break-words font-serif text-lg leading-relaxed text-ink sm:text-xl [&_p]:mb-3 [&_:last-child]:mb-0 [&_strong]:font-semibold">
         {summary.overview || 'No overview was generated for this document.'}
       </Markdown>
+
+      {/* Extraction advisories (scanned pages, table pages) — honest caveats
+          about what the analysis could actually read. */}
+      {summary.extractionNotes?.length > 0 && (
+        <div className="mt-6 space-y-2">
+          {summary.extractionNotes.map((note, i) => (
+            <p
+              key={i}
+              className="break-words rounded-md border border-amber/40 border-l-4 border-l-amber bg-amber/[0.06] px-4 py-2.5 text-sm leading-relaxed text-amber-ink"
+            >
+              {note}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

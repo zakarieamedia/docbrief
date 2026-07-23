@@ -184,8 +184,13 @@ export default function App() {
         setProgress,
       )
       // Stamp citation/quote verification verdicts while we hold the full
-      // text — they persist with the saved summary.
-      const summary = verifySummaryAgainstText(rawSummary, doc.text)
+      // text — they persist with the saved summary. Extraction warnings
+      // (scanned pages, table pages) ride along so the Overview shows them
+      // now and on every reopen.
+      const verified = verifySummaryAgainstText(rawSummary, doc.text)
+      const summary = doc.warnings?.length
+        ? { ...verified, extractionNotes: doc.warnings.map((w) => w.message) }
+        : verified
       const id = crypto.randomUUID?.() ?? String(Math.random())
       setResult({
         id,
@@ -394,7 +399,16 @@ export default function App() {
           docTitle={docTitle}
           tabs={tabs}
           nav={nav}
-          onNavigate={setNav}
+          onNavigate={(next) => {
+            // "+ New Document" means a fresh start — drop the previously
+            // loaded file so a stale upload can't be re-analyzed by accident
+            // (kept only while an analysis is actually running on it).
+            if (next.view === 'new' && !processing) {
+              setDoc(null)
+              setError('')
+            }
+            setNav(next)
+          }}
           onLogout={() => {
             clearUserState()
             supabase.auth.signOut()

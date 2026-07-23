@@ -1,12 +1,16 @@
 import { useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import { friendlyError, humanizeUploadError } from '../lib/messages'
+import { buildExtractionWarnings } from '../lib/extractionChecks'
 import mammoth from 'mammoth'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
 const ACCEPTED = ['.pdf', '.docx', '.txt', '.csv', '.md']
+// Larger files freeze the browser during extraction and blow past the
+// storage bucket's object limit.
+const MAX_FILE_BYTES = 25 * 1024 * 1024
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -22,14 +26,29 @@ async function extractPdf(file) {
   const data = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data }).promise
   const pages = []
+  const pageStats = []
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
     const content = await page.getTextContent()
-    pages.push(content.items.map((item) => item.str).join(' '))
+    const strs = content.items.map((item) => item.str)
+    const pageText = strs.join(' ')
+    pages.push(pageText)
+
+    // Per-page stats feed the scanned-page and table-page heuristics.
+    const nonEmpty = strs.filter((t) => t.trim().length > 0)
+    const chars = pageText.replace(/\s/g, '').length
+    pageStats.push({
+      chars,
+      digits: (pageText.match(/\d/g) ?? []).length,
+      items: nonEmpty.length,
+      avgItemLen: nonEmpty.length
+        ? nonEmpty.reduce((a, t) => a + t.trim().length, 0) / nonEmpty.length
+        : 0,
+    })
   }
   // Return the flat text (unchanged — summarization sees the same input) plus
   // the per-page array, so Q&A can cite real page numbers.
-  return { text: pages.join('\n\n'), pages }
+  return { text: pages.join('\n\n'), pages, pageStats }
 }
 
 async function extractDocx(file) {
@@ -62,6 +81,12 @@ export default function Uploader({ doc, onExtracted, disabled }) {
       )
       return
     }
+    if (file.size > MAX_FILE_BYTES) {
+      setError(
+        `This file is too large (${formatSize(file.size)}). DocBrief accepts files up to 25 MB.`,
+      )
+      return
+    }
     setError('')
     setExtracting(true)
     try {
@@ -69,10 +94,12 @@ export default function Uploader({ doc, onExtracted, disabled }) {
       // Per-page text for PDFs enables real page-number citations in Q&A; stays
       // null for formats with no page concept (DOCX, TXT, CSV, MD).
       let pages = null
+      let warnings = []
       if (ext === '.pdf') {
         const extracted = await extractPdf(file)
         text = extracted.text
         pages = extracted.pages
+        warnings = buildExtractionWarnings(extracted.pageStats)
       } else if (ext === '.docx') text = await extractDocx(file)
       else text = await extractPlainText(file)
 
@@ -90,6 +117,7 @@ export default function Uploader({ doc, onExtracted, disabled }) {
         text,
         wordCount: countWords(text),
         pages,
+        warnings,
       })
     } catch (err) {
       setError(humanizeUploadError(err))
@@ -173,6 +201,19 @@ export default function Uploader({ doc, onExtracted, disabled }) {
         <p className="mt-3 text-sm text-risk-high-ink bg-risk-high/[0.08] border border-risk-high/25 rounded-lg px-3 py-2">
           {error}
         </p>
+      )}
+
+      {doc && !extracting && doc.warnings?.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {doc.warnings.map((w, i) => (
+            <p
+              key={i}
+              className="rounded-lg border border-amber/40 bg-amber/[0.08] px-3 py-2 text-sm leading-relaxed text-amber-ink"
+            >
+              {w.message}
+            </p>
+          ))}
+        </div>
       )}
 
       {doc && !extracting && (
