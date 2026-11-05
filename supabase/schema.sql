@@ -17,13 +17,13 @@ alter table summaries enable row level security;
 create policy "Users see own summaries" on summaries
   for all using (auth.uid() = user_id);
 
--- Admin dashboard access. Keep this email in sync with VITE_ADMIN_EMAIL
--- in .env.local — RLS is what actually enforces admin access; the client
+-- Admin dashboard access. Replace admin@example.com with your admin account's
+-- email and keep it in sync with VITE_ADMIN_EMAIL in .env.local — RLS is what actually enforces admin access; the client
 -- env var only controls UI visibility.
 create policy "Admin reads all summaries" on summaries
-  for select using ((auth.jwt() ->> 'email') = 'zakarie.amedia07@gmail.com');
+  for select using ((auth.jwt() ->> 'email') = 'admin@example.com');
 create policy "Admin deletes any summary" on summaries
-  for delete using ((auth.jwt() ->> 'email') = 'zakarie.amedia07@gmail.com');
+  for delete using ((auth.jwt() ->> 'email') = 'admin@example.com');
 
 -- Migration for databases created before user_email / chunks_processed /
 -- actual_cost:

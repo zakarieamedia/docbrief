@@ -322,9 +322,9 @@ export async function summarizeDocument(text, { depth, focus }, onProgress) {
 }
 
 const CHAT_SYSTEM_PROMPT =
-  'You are briefing Frank, an experienced real estate operator, on a document he just ' +
-  'uploaded. Answer his question conversationally in 2-4 sentences, like a knowledgeable ' +
-  'colleague walking him through his own paperwork — not like you are reading a form. ' +
+  'You are briefing an experienced business professional on a document they just ' +
+  'uploaded. Answer their question conversationally in 2-4 sentences, like a knowledgeable ' +
+  'colleague walking them through their own paperwork — not like you are reading a form. ' +
   'Never invent information that is not present in the provided text; if the document ' +
   'does not answer the question, say so plainly.\n\n' +
   'Respond with ONLY a single valid JSON object — no markdown, no code fences, no ' +

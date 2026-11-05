@@ -1,5 +1,5 @@
 // The one signature element: a small bookmark tag that recurs everywhere a
-// citation appears, so Frank learns a single visual pattern for "this is
+// citation appears, so the reader learns a single visual pattern for "this is
 // where to verify it in the source." It's a locator, not a live link.
 //
 // Long citations must WRAP inside the chip, never widen it past its container

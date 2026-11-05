@@ -71,7 +71,7 @@ export default function App() {
   // { resultId, status: 'saving' | 'saved' | 'error', message? }.
   const [autoSave, setAutoSave] = useState(null)
 
-  // Every completed analysis is saved to history automatically — Frank should
+  // Every completed analysis is saved to history automatically — a user should
   // never lose one by closing the tab. Failures surface as a retryable
   // warning in the results view, never silently.
   const persistAnalysis = async (id, resultObj, text, pages) => {

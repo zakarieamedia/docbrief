@@ -197,7 +197,7 @@ function RiskCard({ risk, onOpen }) {
 
 // Deep-dive for one risk: full description, then the exact wording from the
 // document with its citation. Deliberately NOT a jump-into-the-document
-// viewer — the quote + citation tell Frank exactly what to verify and where.
+// viewer — the quote + citation tell the reader exactly what to verify and where.
 function RiskDetail({ risk, onBack }) {
   const sev = String(risk.severity || 'low').toLowerCase()
   const style = RISK[sev] ?? RISK.low

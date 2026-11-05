@@ -161,7 +161,7 @@ function downloadTextPdf(result) {
 }
 
 // One quiet metric in the muted stats strip below the memo — process metadata
-// (word count, cost, etc.) that Frank doesn't need up front.
+// (word count, cost, etc.) that the reader doesn't need up front.
 function Stat({ label, value }) {
   return (
     <span className="whitespace-nowrap">
