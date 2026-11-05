@@ -3,9 +3,12 @@ import * as pdfjsLib from 'pdfjs-dist'
 import { friendlyError, humanizeUploadError } from '../lib/messages'
 import { buildExtractionWarnings } from '../lib/extractionChecks'
 import mammoth from 'mammoth'
+// Bundle the PDF.js worker with the app instead of loading it from a CDN at
+// runtime: one less third-party script, and the worker version can never drift
+// from the library version.
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
 const ACCEPTED = ['.pdf', '.docx', '.txt', '.csv', '.md']
 // Larger files freeze the browser during extraction and blow past the
